@@ -15,9 +15,15 @@ import { Loader2, Mail, Lock, AlertCircle, ShieldCheck, Home as HomeIcon } from 
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { useAuth } from '@/context/AuthContext';
 
+const passwordSchema = z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Include at least one uppercase letter')
+    .regex(/[0-9]/, 'Include at least one number');
+
 const loginSchema = z.object({
     email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: passwordSchema,
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -122,7 +128,13 @@ export default function Login() {
                                     {...register('password')}
                                 />
                             </div>
-                            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+                            {errors.password ? (
+                                <p className="text-sm text-destructive">{errors.password.message}</p>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">
+                                    Use at least 8 characters with one uppercase letter and one number.
+                                </p>
+                            )}
                         </div>
 
                         <Button type="submit" className="w-full" disabled={passwordMutation.isPending}>
