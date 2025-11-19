@@ -1,65 +1,63 @@
-# User Registration System
+# React Authentication Frontend
 
-Short guide to set up, run, and access the project (frontend + backend).
+Vite + React single-page app that demonstrates modern authentication flows (email/password + Google Sign-In) and a protected 3-column email dashboard backed by mocked APIs.
 
-## Prerequisites
+## Highlights
+- Email/password login with form validation (React Hook Form + Zod).
+- Google Identity Services button that exchanges credentials with the backend.
+- Token handling strategy: access token kept in memory, refresh token persisted in `localStorage`, automatic refresh with concurrency-safe Axios interceptor.
+- Auth-aware routing (`/login`, `/signup`, `/inbox`, `/`) via React Router + custom `AuthContext`.
+- Responsive Inbox UI: folders, paginated list, detail pane, compose modal, keyboard focus states, mobile fallback.
 
-- Node.js 20.19+ or 22.12+
-- npm (or yarn/pnpm)
-- MongoDB instance/connection string
+## Tech Stack
+- React 19, TypeScript, Vite 7
+- React Router 7, React Query 5
+- Tailwind CSS 4, shadcn-inspired component primitives
 
-## Backend (NestJS)
+## Setup
 
-1) Install deps
 ```bash
-cd user-registration-be
+cd react-authentication-fe
 npm install
 ```
 
-2) Environment (.env in `user-registration-be`)
-```env
-MONGODB_URI=mongodb://localhost:27017/user-registration
-JWT_ACCESS_SECRET=replace-with-strong-secret
-JWT_ACCESS_EXPIRES=15m
-JWT_REFRESH_EXPIRES=7d
-CORS_ORIGIN=http://localhost:5173
-PORT=4000
-```
+Create `.env`:
 
-3) Run backend
-```bash
-npm run start:dev
-```
-API will run at `http://localhost:4000`.
-
-## Frontend (React + Vite)
-
-1) Install deps
-```bash
-cd user-registration-system-fe
-npm install
-```
-
-2) Environment (.env in `user-registration-system-fe`)
 ```env
 VITE_API_BASE_URL=http://localhost:4000
+VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
-3) Run frontend
-```bash
-npm run dev
-```
-App will be available at `http://localhost:5173`.
+> Use the exact same client ID as `GOOGLE_CLIENT_ID` on the backend. Add `http://localhost:5173` and your production origin to the OAuth client's “Authorized JavaScript origins”.
 
-## Access
+### Scripts
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start dev server @ `http://localhost:5173` |
+| `npm run build` | Type-check + production bundle |
+| `npm run preview` | Preview production build |
+| `npm run lint` | ESLint |
 
-- Public URL: `https://user-registration-system-fe.vercel.app/`
-- Local development:
-  - Frontend: `http://localhost:5173`
-  - Backend API: `http://localhost:4000`
+## Pages
+- `/` – Marketing/overview page that adapts to auth state.
+- `/signup` – Email/password registration (strong password rules, inline feedback).
+- `/login` – Email/password + Google Sign-In, loading & error messaging.
+- `/inbox` – Requires valid access token; renders folders, list, detail, mock actions, and compose modal.
 
-## App Pages
+## Working With Tokens
+- `src/lib/auth.ts` keeps access token in memory and handles refresh timers.
+- `src/lib/api.ts` attaches the access token to every request and queues up 401s so only one refresh call is executed even during bursts.
+- `AuthContext` refreshes on boot, syncs logout across tabs, and exposes `logout()` to the UI.
 
-- Home (`/`): Guest view by default; shows user info when logged in
-- Login (`/login`): Sign in; redirects to Home on success
-- Sign Up (`/signup`): Create account; redirects to Home on success
+## Mock Email Experience
+The inbox fetches from:
+- `GET /mailboxes`
+- `GET /mailboxes/:id/emails?page=1&pageSize=8`
+- `GET /emails/:id`
+
+Responses include realistic sender names, previews, timestamps, HTML bodies, and attachment metadata so the UI feels like a live email client even without a real provider.
+
+## Deployment Tips
+- Build with Node 20.19+ or 22.12+ (Vite requirement).
+- Provide environment variables through your host (Vercel, Netlify, etc.).
+- Remember to update Google OAuth origins when you deploy to a new domain.

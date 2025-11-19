@@ -2,6 +2,14 @@ let accessTokenMemory: string | null = null;
 let accessExpiryTimer: number | null = null;
 let refreshExpiryTimer: number | null = null;
 
+export type StoredUser = {
+    _id: string;
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+    provider?: 'password' | 'google';
+};
+
 function decodeJwtExp(token: string | null): number | null {
     try {
         if (!token) return null;
@@ -24,12 +32,10 @@ function scheduleAccessExpiryWatcher() {
     if (!accessExpMs) return;
     const delay = Math.max(0, accessExpMs - Date.now());
     accessExpiryTimer = window.setTimeout(() => {
-        // If no refresh token is present (or already cleared), logout immediately
         if (!hasRefresh) {
             clearAllAuth();
             if (window.location.pathname !== '/login') window.location.assign('/login');
         }
-        // If refresh exists, we let the interceptor handle refresh on next API call
     }, delay);
 }
 
@@ -40,7 +46,6 @@ function scheduleRefreshExpiryWatcher() {
     if (!refreshExpMs) return;
     const delay = Math.max(0, refreshExpMs - Date.now());
     refreshExpiryTimer = window.setTimeout(() => {
-        // Refresh token expired -> force logout immediately
         clearAllAuth();
         if (window.location.pathname !== '/login') window.location.assign('/login');
     }, delay);
@@ -52,9 +57,31 @@ export const setAccessToken = (token: string | null) => {
     scheduleAccessExpiryWatcher();
 };
 
-export const persistRefreshInfo = (user: { _id: string; email: string }, refreshToken: string) => {
-    localStorage.setItem('user', JSON.stringify(user));
+export const getStoredUser = (): StoredUser | null => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw) as StoredUser;
+    } catch {
+        return null;
+    }
+};
+
+export const setStoredUser = (user: StoredUser | null) => {
+    if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+    } else {
+        localStorage.removeItem('user');
+    }
+};
+
+export const persistRefreshInfo = (user: StoredUser, refreshToken: string) => {
+    setStoredUser(user);
     localStorage.setItem('refreshToken', refreshToken);
+    scheduleRefreshExpiryWatcher();
+};
+
+export const touchRefreshWatcher = () => {
     scheduleRefreshExpiryWatcher();
 };
 
@@ -72,5 +99,4 @@ export const initAuthWatchers = () => {
     scheduleAccessExpiryWatcher();
     scheduleRefreshExpiryWatcher();
 };
-
 
