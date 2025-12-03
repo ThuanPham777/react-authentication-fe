@@ -58,9 +58,18 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 
 The inbox fetches from:
 
-- `GET /mailboxes`
-- `GET /mailboxes/:id/emails?page=1&pageSize=8`
-- `GET /emails/:id`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/google`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- `GET /api/mailboxes`
+- `GET /api/mailboxes/:id/emails`
+- `GET /api/emails/:id`
+- `GET /api/emails/send`
+- `POST /api/emails/:id/reply`
+- `POST /api/emails/:id/modify`
+- `GET /api/attachments/:id`
 
 Responses include realistic sender names, previews, timestamps, HTML bodies, and attachment metadata so the UI feels like a live email client even without a real provider.
 
