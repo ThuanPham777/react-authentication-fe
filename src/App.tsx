@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Inbox from './pages/Inbox';
 import { Loader2 } from 'lucide-react';
+import InboxPage from './pages/inbox/InboxPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,7 +47,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<PublicOnlyRoute element={<Login />} />} />
             <Route path="/signup" element={<PublicOnlyRoute element={<SignUp />} />} />
-            <Route path="/inbox" element={<ProtectedRoute element={<Inbox />} />} />
+            <Route path="/inbox" element={<ProtectedRoute element={<InboxPage />} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
