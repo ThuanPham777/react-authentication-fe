@@ -1,17 +1,30 @@
+// src/pages/inbox/components/kanban/KanbanCard.tsx
+import type React from "react";
 import type { KanbanEmailItem } from "@/lib/api";
-import { Loader2, GripVertical } from "lucide-react";
+import { Loader2, GripVertical, MailOpen, Sparkles } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { SnoozePopover } from "./SnoozePopover";
+import { Button } from "@/components/ui/button";
+
+function initials(name?: string) {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    const a = parts[0]?.[0] ?? "";
+    const b = parts[1]?.[0] ?? "";
+    return (a + b).toUpperCase() || "U";
+}
 
 export function KanbanCard({
     item,
     onSnooze,
+    onOpenMail,
     isUpdating,
     isSummarizing,
 }: {
     item: KanbanEmailItem;
     onSnooze: (untilIso: string) => void;
+    onOpenMail?: (emailId: string) => void;
     isUpdating?: boolean;
     isSummarizing?: boolean;
 }) {
@@ -26,6 +39,7 @@ export function KanbanCard({
     } = useSortable({
         id: item.messageId,
         data: {
+            type: "card",
             status: item.status,
         },
     });
@@ -40,20 +54,25 @@ export function KanbanCard({
         <div
             ref={setNodeRef}
             style={style}
-            className="rounded-xl border bg-background p-3 shadow-sm"
+            className="group rounded-2xl border bg-card p-3 shadow-sm transition-all hover:shadow-md"
         >
             <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex items-start gap-1">
-                    {/* Drag handle chuẩn: dùng setActivatorNodeRef */}
+                <div className="min-w-0 flex items-start gap-2">
+                    {/* Drag handle */}
                     <span
                         ref={setActivatorNodeRef}
-                        className="mt-0.5 cursor-grab text-muted-foreground"
+                        className="mt-1 cursor-grab text-muted-foreground/80 hover:text-muted-foreground"
                         {...attributes}
                         {...listeners}
                         title="Drag"
                     >
                         <GripVertical className="h-4 w-4" />
                     </span>
+
+                    {/* Avatar */}
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                        {initials(item.senderName)}
+                    </div>
 
                     <div className="min-w-0">
                         <p className="text-sm font-semibold line-clamp-1">
@@ -74,17 +93,20 @@ export function KanbanCard({
                 {item.subject ?? "(No subject)"}
             </p>
 
-            {/* Summary area */}
+            {/* Summary */}
             <div className="mt-2">
                 {item.summary ? (
-                    <div className="rounded-md bg-muted/40 p-2">
-                        <p className="text-xs font-semibold text-muted-foreground">
-                            AI Summary
-                        </p>
+                    <div className="rounded-lg bg-muted/40 p-2">
+                        <div className="mb-1 flex items-center gap-1">
+                            <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                            <p className="text-[10px] font-semibold text-muted-foreground">
+                                AI Summary
+                            </p>
+                        </div>
                         <p className="text-xs leading-relaxed">{item.summary}</p>
                     </div>
                 ) : (
-                    <div className="rounded-md border border-dashed p-2">
+                    <div className="rounded-lg border border-dashed p-2">
                         <p className="text-xs text-muted-foreground">
                             {isSummarizing ? "Generating summary..." : "Summary pending..."}
                         </p>
@@ -92,11 +114,24 @@ export function KanbanCard({
                 )}
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-1">
+            {/* Actions */}
+            <div className="mt-3 flex items-center gap-1">
                 <SnoozePopover
                     disabled={isUpdating}
                     onConfirm={(untilIso) => onSnooze(untilIso)}
                 />
+
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    disabled={isUpdating}
+                    onClick={() => onOpenMail?.(item.messageId)}
+                    title="Open mail"
+                >
+                    <MailOpen className="mr-1 h-3.5 w-3.5" />
+                    Open mail
+                </Button>
             </div>
         </div>
     );

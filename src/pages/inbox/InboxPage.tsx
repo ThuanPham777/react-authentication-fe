@@ -38,7 +38,7 @@ export default function InboxPage() {
     return (
         <div className="min-h-screen flex flex-col bg-background text-foreground">
             <header className="border-b bg-card">
-                <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+                <div className="flex items-center justify-between gap-4 px-4 py-4">
                     <div>
                         <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                             Mailbox
@@ -62,7 +62,7 @@ export default function InboxPage() {
             </header>
 
             <main className="flex-1">
-                <div className="mx-auto max-w-6xl p-4">
+                <div className="p-4">
                     {mode === "traditional" ? (
                         <div className="grid gap-4 lg:grid-cols-[22%_78%]">
                             <MailboxSidebar

@@ -1,3 +1,4 @@
+// src/pages/inbox/components/kanban/KanbanColumn.tsx
 import type { KanbanEmailItem } from "@/lib/api";
 import { KanbanCard } from "./KanbanCard";
 import { useDroppable } from "@dnd-kit/core";
@@ -8,58 +9,63 @@ export function KanbanColumn({
     title,
     status,
     items,
-    onMoveItem,
     onSnoozeItem,
+    onOpenMail,
     loadingMap,
     summarizingMap,
 }: {
     title: string;
     status: EmailStatus;
     items: KanbanEmailItem[];
-    onMoveItem: (messageId: string, status: EmailStatus) => void;
     onSnoozeItem: (messageId: string, untilIso: string) => void;
+    onOpenMail?: (emailId: string) => void;
     loadingMap: Record<string, boolean>;
     summarizingMap: Record<string, boolean>;
 }) {
-    const { setNodeRef, isOver } = useDroppable({ id: status });
+    const { setNodeRef, isOver } = useDroppable({
+        id: status,
+        data: { type: "column", status },
+    });
+
+    const itemIds = items.map((i) => i.messageId);
 
     return (
         <div
             ref={setNodeRef}
-            className={`rounded-2xl border bg-card p-3 transition ${isOver ? "ring-1 ring-primary/40" : ""
-                }`}
+            className={[
+                "h-full rounded-2xl border bg-card/60 p-4 transition-all",
+                isOver ? "ring-1 ring-primary/40 bg-primary/5" : "hover:bg-card",
+            ].join(" ")}
         >
-            <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{title}</h3>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
-                    {items.length}
-                </span>
+            <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">
+                        {items.length}
+                    </span>
+                </div>
             </div>
 
-            {/* Thêm id để hỗ trợ multi-container rõ ràng hơn */}
-            <SortableContext
-                id={status}
-                items={items.map((i) => i.messageId)}
-                strategy={verticalListSortingStrategy}
-            >
+            <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
                 <div className="space-y-3">
-                    {items.map((it) => (
+                    {items.map((item) => (
                         <KanbanCard
-                            key={it.messageId}
-                            item={it}
-                            onSnooze={(until) => onSnoozeItem(it.messageId, until)}
-                            isUpdating={!!loadingMap[it.messageId]}
-                            isSummarizing={!!summarizingMap[it.messageId]}
+                            key={item.messageId}
+                            item={item}
+                            onSnooze={(until) => onSnoozeItem(item.messageId, until)}
+                            onOpenMail={onOpenMail}
+                            isUpdating={!!loadingMap[item.messageId]}
+                            isSummarizing={!!summarizingMap[item.messageId]}
                         />
                     ))}
-
-                    {!items.length && (
-                        <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                            No items
-                        </div>
-                    )}
                 </div>
             </SortableContext>
+
+            {items.length === 0 && (
+                <div className="mt-3 flex h-24 items-center justify-center rounded-xl border border-dashed">
+                    <p className="text-xs text-muted-foreground">Drop emails here</p>
+                </div>
+            )}
         </div>
     );
 }

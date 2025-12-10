@@ -1,3 +1,4 @@
+// src/pages/inbox/components/kanban/KanbanBoard.tsx
 import {
     DndContext,
     closestCorners,
@@ -7,17 +8,18 @@ import {
     KeyboardSensor,
     useSensor,
     useSensors,
+    pointerWithin,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useMemo, useState } from "react";
 import type { KanbanBoardData, KanbanEmailItem } from "@/lib/api";
 import { KanbanColumn } from "./KanbanColumn";
+import { KanbanCardPreview } from "./KanbanCardPreview";
 import {
     COLUMN_TITLES,
     DEFAULT_KANBAN_STATUSES,
     type EmailStatus,
 } from "./constants";
-import { KanbanCardPreview } from "./KanbanCardPreview";
 
 function findItem(board: KanbanBoardData, messageId: string, statuses: EmailStatus[]) {
     for (const st of statuses) {
@@ -27,19 +29,11 @@ function findItem(board: KanbanBoardData, messageId: string, statuses: EmailStat
     return null;
 }
 
-function findStatusOf(board: KanbanBoardData, messageId: string, statuses: EmailStatus[]) {
-    for (const st of statuses) {
-        if ((board as any)[st]?.some((i: KanbanEmailItem) => i.messageId === messageId)) {
-            return st;
-        }
-    }
-    return null;
-}
-
 export function KanbanBoard({
     board,
     onMoveItem,
     onSnoozeItem,
+    onOpenMail,
     loadingMap,
     summarizingMap,
     statuses = DEFAULT_KANBAN_STATUSES,
@@ -47,6 +41,7 @@ export function KanbanBoard({
     board: KanbanBoardData;
     onMoveItem: (messageId: string, status: EmailStatus) => void;
     onSnoozeItem: (messageId: string, untilIso: string) => void;
+    onOpenMail?: (emailId: string) => void;
     loadingMap: Record<string, boolean>;
     summarizingMap: Record<string, boolean>;
     statuses?: EmailStatus[];
@@ -54,12 +49,8 @@ export function KanbanBoard({
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: { distance: 6 },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
     const columns = useMemo(
@@ -75,42 +66,37 @@ export function KanbanBoard({
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveId(null);
-
         if (!over) return;
 
-        const activeMessageId = String(active.id);
-        const overId = String(over.id);
+        const activeIdStr = String(active.id);
 
-        const fromStatus = findStatusOf(board, activeMessageId, statuses);
-        if (!fromStatus) return;
+        const activeData = active.data.current as any;
+        const overData = over.data.current as any;
 
-        let toStatus: EmailStatus | null = null;
+        const fromStatus = activeData?.status as EmailStatus | undefined;
+        const toStatus =
+            overData?.type === "column"
+                ? (overData.status as EmailStatus)
+                : (overData?.status as EmailStatus | undefined);
 
-        // drop on column
-        if (statuses.includes(overId as EmailStatus)) {
-            toStatus = overId as EmailStatus;
-        } else {
-            // drop on another card -> infer that card's status
-            const inferred = findStatusOf(board, overId, statuses);
-            if (inferred) toStatus = inferred;
-        }
+        if (!fromStatus || !toStatus) return;
+        if (fromStatus === toStatus) return;
 
-        if (!toStatus || toStatus === fromStatus) return;
-
-        onMoveItem(activeMessageId, toStatus);
+        onMoveItem(activeIdStr, toStatus);
     };
 
     const activeItem = activeId ? findItem(board, activeId, statuses) : null;
 
     const gridClass =
-        statuses.length <= 3
-            ? "grid gap-4 lg:grid-cols-3"
-            : "grid gap-4 lg:grid-cols-4";
+        statuses.length <= 3 ? "grid gap-4 lg:grid-cols-3" : "grid gap-4 lg:grid-cols-4";
 
     return (
         <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={(args) => {
+                const pointer = pointerWithin(args);
+                return pointer.length ? pointer : closestCorners(args);
+            }}
             onDragStart={(e) => setActiveId(String(e.active.id))}
             onDragCancel={() => setActiveId(null)}
             onDragEnd={handleDragEnd}
@@ -122,18 +108,17 @@ export function KanbanBoard({
                         title={col.title}
                         status={col.status}
                         items={col.items}
-                        onMoveItem={onMoveItem}
                         onSnoozeItem={onSnoozeItem}
+                        onOpenMail={onOpenMail}
                         loadingMap={loadingMap}
                         summarizingMap={summarizingMap}
                     />
                 ))}
             </div>
 
-            {/* ✅ Overlay dùng preview KHÔNG xài useSortable */}
             <DragOverlay>
                 {activeItem ? (
-                    <div className="w-[280px]">
+                    <div className="w-[300px]">
                         <KanbanCardPreview item={activeItem} />
                     </div>
                 ) : null}

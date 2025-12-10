@@ -1,3 +1,4 @@
+// src/pages/inbox/components/kanban/KanbanInboxView.tsx
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,7 +14,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_KANBAN_STATUSES, type EmailStatus } from "./constants";
+import { KanbanEmailDetailDialog } from "./KanbanEmailDetailDialog";
 
+/** ---------- optimistic helpers ---------- */
 function patchBoardMove(
     board: KanbanBoardData,
     messageId: string,
@@ -58,6 +61,7 @@ function patchBoardSummary(
     return next;
 }
 
+/** ---------- view ---------- */
 export function KanbanInboxView({ labelId }: { labelId?: string }) {
     const qc = useQueryClient();
     const [msg, setMsg] = useState<string | null>(null);
@@ -66,32 +70,35 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     const keyLabel = labelId ?? "INBOX";
     const queryKey = ["kanban-board", keyLabel];
 
+    const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
+    const [summarizingMap, setSummarizingMap] = useState<Record<string, boolean>>({});
+
+    // Mail detail dialog state
+    const [openMailId, setOpenMailId] = useState<string | null>(null);
+    const [openMail, setOpenMail] = useState(false);
+
     const boardQuery = useQuery({
         queryKey,
         queryFn: () => getKanbanBoard(labelId),
     });
-
-    const show = (m: string) => {
-        setMsg(m);
-        window.setTimeout(() => setMsg(null), 2000);
-    };
-
-    const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
-    const [summarizingMap, setSummarizingMap] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         setLoadingMap({});
         setSummarizingMap({});
     }, [keyLabel]);
 
-    // ----- Optimistic Move -----
+    const show = (m: string) => {
+        setMsg(m);
+        window.setTimeout(() => setMsg(null), 2000);
+    };
+
+    /** ---------- Optimistic Move ---------- */
     const moveMutation = useMutation({
         mutationFn: ({ messageId, status }: { messageId: string; status: EmailStatus }) =>
             updateKanbanStatus(messageId, status),
 
         onMutate: async ({ messageId, status }) => {
             setLoadingMap((m) => ({ ...m, [messageId]: true }));
-
             await qc.cancelQueries({ queryKey });
 
             const prev = qc.getQueryData<any>(queryKey);
@@ -101,7 +108,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
                 qc.setQueryData(queryKey, { ...prev, data: optimistic });
             }
 
-            return { prev };
+            return { prev, messageId };
         },
 
         onError: (_err, _vars, ctx) => {
@@ -109,9 +116,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             show("Update failed");
         },
 
-        onSuccess: () => {
-            show("Status updated");
-        },
+        onSuccess: () => show("Status updated"),
 
         onSettled: (_d, _e, vars) => {
             if (vars?.messageId) {
@@ -121,7 +126,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
         },
     });
 
-    // ----- Snooze -----
+    /** ---------- Snooze ---------- */
     const snoozeMutation = useMutation({
         mutationFn: ({ messageId, until }: { messageId: string; until: string }) =>
             snoozeKanbanItem(messageId, until),
@@ -130,9 +135,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             setLoadingMap((m) => ({ ...m, [messageId]: true }));
         },
 
-        onSuccess: () => {
-            show("Snoozed");
-        },
+        onSuccess: () => show("Snoozed"),
 
         onSettled: (_d, _e, vars) => {
             if (vars?.messageId) {
@@ -142,7 +145,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
         },
     });
 
-    // ----- Summarize (auto) -----
+    /** ---------- Summarize (auto) ---------- */
     const summarizeMutation = useMutation({
         mutationFn: ({ messageId }: { messageId: string }) =>
             summarizeKanbanItem(messageId),
@@ -152,7 +155,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
         },
 
         onSuccess: (resp: any, vars) => {
-            const summary = resp?.data?.summary ?? resp?.summary; // tùy shape API
+            const summary = resp?.data?.summary ?? resp?.summary;
             if (!summary) return;
 
             const prev = qc.getQueryData<any>(queryKey);
@@ -160,10 +163,6 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
                 const patched = patchBoardSummary(prev.data, vars.messageId, summary, statuses);
                 qc.setQueryData(queryKey, { ...prev, data: patched });
             }
-        },
-
-        onError: () => {
-            // silent or toast nhẹ
         },
 
         onSettled: (_d, _e, vars) => {
@@ -179,9 +178,14 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     const onSnoozeItem = (messageId: string, untilIso: string) =>
         snoozeMutation.mutate({ messageId, until: untilIso });
 
+    const onOpenMail = (emailId: string) => {
+        setOpenMailId(emailId);
+        setOpenMail(true);
+    };
+
     const board: KanbanBoardData | undefined = boardQuery.data?.data;
 
-    // ---- AUTO summarize when board loads ----
+    /** ---- AUTO summarize when board loads ---- */
     const requestedSet = useRef<Set<string>>(new Set());
 
     const flatItems = useMemo(() => {
@@ -192,7 +196,6 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     useEffect(() => {
         if (!flatItems.length) return;
 
-        // giới hạn để tránh spam nếu mailbox lớn
         const need = flatItems.filter((i) => !i.summary);
         const limited = need.slice(0, 12);
 
@@ -241,11 +244,19 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
                     board={board}
                     onMoveItem={onMoveItem}
                     onSnoozeItem={onSnoozeItem}
+                    onOpenMail={onOpenMail}
                     loadingMap={loadingMap}
                     summarizingMap={summarizingMap}
                     statuses={statuses}
                 />
             )}
+
+            {/* Mail detail dialog */}
+            <KanbanEmailDetailDialog
+                emailId={openMailId}
+                open={openMail}
+                onOpenChange={setOpenMail}
+            />
         </div>
     );
 }
