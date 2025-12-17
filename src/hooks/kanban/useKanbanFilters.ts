@@ -19,7 +19,9 @@ interface UseKanbanFiltersProps {
  * @returns Filtered/sorted board and filter controls
  */
 export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [sortOrder, setSortOrder] = useState<
+    'newest' | 'oldest' | 'sender-asc' | 'sender-desc'
+  >('newest');
   const [filterUnread, setFilterUnread] = useState(false);
   const [filterSender, setFilterSender] = useState('');
   const [filterAttachments, setFilterAttachments] = useState(false);
@@ -53,28 +55,23 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
 
       // Filter by attachments
       if (filterAttachments) {
-        console.log(
-          '[Filter] Filtering by attachments. Sample items:',
-          items.slice(0, 3).map((i) => ({
-            messageId: i.messageId,
-            hasAttachments: (i as any).hasAttachments,
-            subject: i.subject,
-          }))
-        );
-        const filtered = items.filter(
-          (i) => (i as any).hasAttachments === true
-        );
-        console.log(
-          `[Filter] Filtered ${items.length} items down to ${filtered.length} with attachments`
-        );
-        items = filtered;
+        items = items.filter((i) => i.hasAttachments === true);
       }
 
-      // Sort by date (createdAt or updatedAt)
+      // Sort by date or sender
       items = items.slice().sort((a, b) => {
-        const timeA = new Date(a.createdAt ?? a.updatedAt ?? 0).getTime();
-        const timeB = new Date(b.createdAt ?? b.updatedAt ?? 0).getTime();
-        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+        if (sortOrder === 'sender-asc' || sortOrder === 'sender-desc') {
+          // Sort by sender name
+          const nameA = (a.senderName || a.senderEmail || '').toLowerCase();
+          const nameB = (b.senderName || b.senderEmail || '').toLowerCase();
+          const comparison = nameA.localeCompare(nameB);
+          return sortOrder === 'sender-asc' ? comparison : -comparison;
+        } else {
+          // Sort by date
+          const timeA = new Date(a.createdAt ?? a.updatedAt ?? 0).getTime();
+          const timeB = new Date(b.createdAt ?? b.updatedAt ?? 0).getTime();
+          return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+        }
       });
 
       out[st] = items;

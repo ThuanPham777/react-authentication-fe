@@ -30,6 +30,8 @@ export interface KanbanEmailItem {
   summary?: string;
   lastSummarizedAt?: string;
 
+  hasAttachments?: boolean;
+
   createdAt?: string;
   updatedAt?: string;
 }

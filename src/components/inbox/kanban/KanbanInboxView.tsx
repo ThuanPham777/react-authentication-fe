@@ -284,6 +284,8 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             >
               <option value='newest'>Date: Newest first</option>
               <option value='oldest'>Date: Oldest first</option>
+              <option value='sender-asc'>Sender: A-Z</option>
+              <option value='sender-desc'>Sender: Z-A</option>
             </select>
           </label>
 

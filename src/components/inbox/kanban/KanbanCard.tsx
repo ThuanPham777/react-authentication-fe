@@ -32,6 +32,31 @@ function initials(name?: string) {
 }
 
 /**
+ * Formats timestamp to relative time (e.g., "2 hours ago")
+ * @param dateString - ISO date string
+ * @returns Formatted relative time
+ */
+function formatRelativeTime(dateString?: string): string {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
+}
+
+/**
  * Kanban email card component
  * @param item - Email item data
  * @param onSnooze - Callback when snoozed
@@ -116,6 +141,13 @@ export function KanbanCard({
       <p className='mt-2 text-sm font-medium line-clamp-2'>
         {item.subject ?? '(No subject)'}
       </p>
+
+      {/* Timestamp */}
+      {(item.createdAt || item.updatedAt) && (
+        <p className='mt-1 text-xs text-muted-foreground'>
+          {formatRelativeTime(item.createdAt || item.updatedAt)}
+        </p>
+      )}
 
       {/* Summary */}
       <div className='mt-2'>
