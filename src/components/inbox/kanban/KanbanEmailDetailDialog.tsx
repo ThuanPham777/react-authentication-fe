@@ -229,7 +229,6 @@ export function KanbanEmailDetailDialog({
                     <div
                       className='
                       prose prose-sm max-w-none dark:prose-invert
-                      break-words
                       prose-a:break-all
                       prose-pre:whitespace-pre-wrap
                       prose-pre:break-words

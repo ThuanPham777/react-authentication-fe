@@ -25,7 +25,6 @@ import {
   MESSAGE_DISPLAY_DURATION,
   type EmailStatus,
 } from '../../../constants/constants.kanban';
-import { KanbanEmailDetailDialog } from './KanbanEmailDetailDialog';
 import { useKanbanMutations } from '../../../hooks/kanban/useKanbanMutations';
 import { useKanbanFilters } from '../../../hooks/kanban/useKanbanFilters';
 import { needsSummary } from '../../../utils/kanbanUtils';
@@ -47,10 +46,6 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
   const [summarizingMap, setSummarizingMap] = useState<Record<string, boolean>>(
     {}
   );
-
-  // Mail detail dialog state
-  const [openMailId, setOpenMailId] = useState<string | null>(null);
-  const [openMail, setOpenMail] = useState(false);
 
   // Fetch kanban board data with infinite scroll
   const boardQuery = useInfiniteQuery({
@@ -125,11 +120,12 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     snoozeMutation.mutate({ messageId, until: untilIso });
 
   /**
-   * Opens email detail dialog
+   * Opens email in Gmail in new tab
    */
-  const onOpenMail = (emailId: string) => {
-    setOpenMailId(emailId);
-    setOpenMail(true);
+  const onOpenMail = (messageId: string) => {
+    // Gmail URL format: https://mail.google.com/mail/u/0/#inbox/{messageId}
+    const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${messageId}`;
+    window.open(gmailUrl, '_blank', 'noopener,noreferrer');
   };
 
   /**
@@ -141,6 +137,31 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     }
   };
 
+  // Auto-load more when scrolling to bottom (intersection observer)
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [boardQuery.hasNextPage, boardQuery.isFetchingNextPage]);
+
   // Use custom filters hook
   const {
     processedBoard,
@@ -151,6 +172,8 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     setFilterUnread,
     filterSender,
     setFilterSender,
+    filterAttachments,
+    setFilterAttachments,
   } = useKanbanFilters({ board, statuses });
 
   /**
@@ -214,6 +237,17 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             </span>
           </label>
 
+          <label className='flex items-center gap-2 text-sm'>
+            <input
+              type='checkbox'
+              checked={filterAttachments}
+              onChange={(e) => setFilterAttachments(e.target.checked)}
+            />
+            <span className='text-xs text-muted-foreground'>
+              Has attachments
+            </span>
+          </label>
+
           <input
             placeholder='Filter sender...'
             value={filterSender}
@@ -252,35 +286,22 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             statuses={statuses}
           />
 
-          {/* Load more button */}
+          {/* Invisible sentinel for auto-loading more */}
           {boardQuery.hasNextPage && (
-            <div className='flex justify-center pt-4'>
-              <Button
-                onClick={loadMore}
-                disabled={boardQuery.isFetchingNextPage}
-                variant='outline'
-                className='gap-2'
-              >
-                {boardQuery.isFetchingNextPage ? (
-                  <>
-                    <Loader2 className='h-4 w-4 animate-spin' />
-                    Loading more...
-                  </>
-                ) : (
-                  'Load more emails'
-                )}
-              </Button>
+            <div
+              ref={loadMoreRef}
+              className='h-20 flex items-center justify-center'
+            >
+              {boardQuery.isFetchingNextPage && (
+                <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                  Loading more emails...
+                </div>
+              )}
             </div>
           )}
         </>
       )}
-
-      {/* Mail detail dialog */}
-      <KanbanEmailDetailDialog
-        emailId={openMailId}
-        open={openMail}
-        onOpenChange={setOpenMail}
-      />
     </div>
   );
 }

@@ -22,6 +22,7 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [filterUnread, setFilterUnread] = useState(false);
   const [filterSender, setFilterSender] = useState('');
+  const [filterAttachments, setFilterAttachments] = useState(false);
 
   /**
    * Processes board data with filters and sorting
@@ -50,6 +51,25 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
         });
       }
 
+      // Filter by attachments
+      if (filterAttachments) {
+        console.log(
+          '[Filter] Filtering by attachments. Sample items:',
+          items.slice(0, 3).map((i) => ({
+            messageId: i.messageId,
+            hasAttachments: (i as any).hasAttachments,
+            subject: i.subject,
+          }))
+        );
+        const filtered = items.filter(
+          (i) => (i as any).hasAttachments === true
+        );
+        console.log(
+          `[Filter] Filtered ${items.length} items down to ${filtered.length} with attachments`
+        );
+        items = filtered;
+      }
+
       // Sort by date (createdAt or updatedAt)
       items = items.slice().sort((a, b) => {
         const timeA = new Date(a.createdAt ?? a.updatedAt ?? 0).getTime();
@@ -61,7 +81,14 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
     }
 
     return out as KanbanBoardData;
-  }, [board, statuses, sortOrder, filterUnread, filterSender]);
+  }, [
+    board,
+    statuses,
+    sortOrder,
+    filterUnread,
+    filterSender,
+    filterAttachments,
+  ]);
 
   /**
    * Flattens all board items into a single array
@@ -86,5 +113,7 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
     setFilterUnread,
     filterSender,
     setFilterSender,
+    filterAttachments,
+    setFilterAttachments,
   };
 }
