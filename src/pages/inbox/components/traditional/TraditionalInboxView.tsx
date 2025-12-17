@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  getMailboxEmails,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useInfiniteQuery,
+} from '@tanstack/react-query';
+import {
+  getMailboxEmailsInfinite,
   getEmailDetail,
   sendEmail,
   replyEmail,
   modifyEmail,
   getAttachment,
   type EmailDetailResponse,
-  type MailboxEmailsResponse,
   type SendEmailData,
 } from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,7 +20,7 @@ import { EmailListColumn } from './EmailListColumn';
 import { EmailDetailColumn } from './EmailDetailColumn';
 import { ComposeModal } from './ComposeModal';
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
 type ComposeDraft = {
   to: string;
@@ -37,15 +41,16 @@ export function TraditionalInboxView({
 
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
   const [composeDraft, setComposeDraft] = useState<ComposeDraft | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const emailsQuery = useQuery<MailboxEmailsResponse>({
-    queryKey: ['emails', mailboxId, page],
-    queryFn: () => getMailboxEmails(mailboxId, page, PAGE_SIZE),
+  const emailsQuery = useInfiniteQuery({
+    queryKey: ['emails-infinite', mailboxId],
+    queryFn: ({ pageParam }) =>
+      getMailboxEmailsInfinite(mailboxId, pageParam, PAGE_SIZE),
     enabled: !!mailboxId,
-    placeholderData: (prev) => prev,
+    getNextPageParam: (lastPage) => lastPage.meta.nextPageToken ?? undefined,
+    initialPageParam: undefined as string | undefined,
   });
 
   const emailDetailQuery = useQuery<EmailDetailResponse>({
@@ -54,23 +59,24 @@ export function TraditionalInboxView({
     enabled: Boolean(selectedEmailId),
   });
 
+  // Flatten all pages into single array
+  const allEmails = useMemo(() => {
+    return emailsQuery.data?.pages.flatMap((page) => page.data) ?? [];
+  }, [emailsQuery.data]);
+
   useEffect(() => {
     setSelectedEmails([]);
     setSelectedEmailId(null);
-    setPage(1);
   }, [mailboxId]);
 
-  useEffect(() => setSelectedEmails([]), [page]);
-
   useEffect(() => {
-    const list = emailsQuery.data?.data ?? [];
-    if (!list.length) {
+    if (!allEmails.length) {
       setSelectedEmailId(null);
       return;
     }
-    const still = list.some((e) => e.id === selectedEmailId);
-    if (!still) setSelectedEmailId(list[0].id);
-  }, [emailsQuery.data, selectedEmailId]);
+    const still = allEmails.some((e) => e.id === selectedEmailId);
+    if (!still) setSelectedEmailId(allEmails[0].id);
+  }, [allEmails, selectedEmailId]);
 
   const show = (m: string) => {
     setActionMessage(m);
@@ -114,10 +120,9 @@ export function TraditionalInboxView({
   });
 
   const handleSelectAll = () => {
-    const list = emailsQuery.data?.data ?? [];
-    if (!list.length) return;
+    if (!allEmails.length) return;
     setSelectedEmails((prev) =>
-      prev.length === list.length ? [] : list.map((e) => e.id)
+      prev.length === allEmails.length ? [] : allEmails.map((e) => e.id)
     );
   };
 
@@ -132,23 +137,16 @@ export function TraditionalInboxView({
     show(msg);
   };
 
-  const currentEmails = emailsQuery.data?.data ?? [];
   const filteredEmails = useMemo(() => {
-    if (!emailSearchTerm.trim()) return currentEmails;
+    if (!emailSearchTerm.trim()) return allEmails;
     const t = emailSearchTerm.toLowerCase();
-    return currentEmails.filter(
+    return allEmails.filter(
       (e) =>
         e.senderName.toLowerCase().includes(t) ||
         e.subject.toLowerCase().includes(t) ||
         e.preview.toLowerCase().includes(t)
     );
-  }, [currentEmails, emailSearchTerm]);
-
-  const totalPages = useMemo(() => {
-    const total = emailsQuery.data?.meta.total;
-    if (!total) return 1;
-    return Math.max(1, Math.ceil(total / PAGE_SIZE));
-  }, [emailsQuery.data]);
+  }, [allEmails, emailSearchTerm]);
 
   const openCompose = (initial?: Partial<ComposeDraft>) =>
     setComposeDraft({
@@ -172,11 +170,9 @@ export function TraditionalInboxView({
         <EmailListColumn
           emails={filteredEmails}
           isLoading={emailsQuery.isLoading}
-          isFetching={emailsQuery.isFetching}
-          page={page}
-          totalPages={totalPages}
-          totalEmails={emailsQuery.data?.meta.total ?? 0}
-          onPageChange={setPage}
+          isFetching={emailsQuery.isFetching || emailsQuery.isFetchingNextPage}
+          hasMore={emailsQuery.hasNextPage ?? false}
+          onLoadMore={() => emailsQuery.fetchNextPage()}
           selectedEmails={selectedEmails}
           onSelectEmail={setSelectedEmailId}
           onToggleSelect={(id) =>
@@ -186,7 +182,7 @@ export function TraditionalInboxView({
           }
           onSelectAll={handleSelectAll}
           onRefresh={() =>
-            qc.invalidateQueries({ queryKey: ['emails', mailboxId] })
+            qc.invalidateQueries({ queryKey: ['emails-infinite', mailboxId] })
           }
           onMarkRead={() => handleBulkModify({ markRead: true }, 'Marked read')}
           onMarkUnread={() =>

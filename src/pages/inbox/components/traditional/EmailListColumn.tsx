@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react';
 import type { EmailListItem } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,8 +8,6 @@ import {
   Star,
   StarOff,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   Plus,
 } from 'lucide-react';
 import { MailIcon } from './MailIcon';
@@ -17,10 +16,8 @@ export function EmailListColumn({
   emails,
   isLoading,
   isFetching,
-  page,
-  totalPages,
-  totalEmails,
-  onPageChange,
+  hasMore,
+  onLoadMore,
   selectedEmails,
   onSelectEmail,
   onToggleSelect,
@@ -33,15 +30,13 @@ export function EmailListColumn({
   actionsDisabled,
   activeEmailId,
   compact,
-  onCompose, // ✅ add
+  onCompose,
 }: {
   emails: EmailListItem[];
   isLoading: boolean;
   isFetching: boolean;
-  page: number;
-  totalPages: number;
-  totalEmails: number;
-  onPageChange: (page: number) => void;
+  hasMore: boolean;
+  onLoadMore: () => void;
   selectedEmails: string[];
   onSelectEmail: (id: string) => void;
   onToggleSelect: (id: string) => void;
@@ -54,9 +49,22 @@ export function EmailListColumn({
   actionsDisabled: boolean;
   activeEmailId: string | null;
   compact?: boolean;
-
-  onCompose?: () => void; // ✅ add
+  onCompose?: () => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll event để detect khi gần đến cuối
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current || !hasMore || isFetching) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200; // 200px từ đáy
+
+    if (isNearBottom) {
+      onLoadMore();
+    }
+  }, [hasMore, isFetching, onLoadMore]);
+
   return (
     <div className='flex h-full flex-col rounded-xl border bg-card shadow-sm min-h-0 min-w-0 overflow-hidden'>
       <div className='border-b px-4 py-3 shrink-0'>
@@ -120,14 +128,14 @@ export function EmailListColumn({
             <Trash2 className='h-4 w-4' />
             Delete
           </Button>
-
-          {isFetching && (
-            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
-          )}
         </div>
       </div>
 
-      <div className='flex-1 overflow-y-auto min-h-0'>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className='flex-1 overflow-y-auto min-h-0'
+      >
         {isLoading ? (
           <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
             Loading emails…
@@ -198,6 +206,27 @@ export function EmailListColumn({
                 </div>
               </li>
             ))}
+
+            {/* Loading more indicator */}
+            {isFetching && (
+              <li className='flex items-center justify-center py-4 text-sm text-muted-foreground'>
+                <Loader2 className='h-4 w-4 animate-spin mr-2' />
+                Loading more emails...
+              </li>
+            )}
+
+            {/* Load more button (backup nếu auto-scroll không trigger) */}
+            {!isFetching && hasMore && (
+              <li className='flex items-center justify-center py-4'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={onLoadMore}
+                >
+                  Load More
+                </Button>
+              </li>
+            )}
           </ul>
         ) : (
           <div className='flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground'>
@@ -207,30 +236,13 @@ export function EmailListColumn({
         )}
       </div>
 
-      <div className='flex items-center justify-between border-t px-4 py-3 text-sm shrink-0'>
-        <p className='text-muted-foreground'>
-          {totalEmails
-            ? `Showing ${emails.length} of ${totalEmails} emails · Page ${page} / ${totalPages}`
-            : `Showing ${emails.length} emails · Page ${page} / ${totalPages}`}
-        </p>
-        <div className='flex items-center gap-2'>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => onPageChange(Math.max(1, page - 1))}
-            disabled={page === 1}
-          >
-            <ChevronLeft className='h-4 w-4' />
-          </Button>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-            disabled={page === totalPages}
-          >
-            <ChevronRight className='h-4 w-4' />
-          </Button>
-        </div>
+      <div className='flex items-center justify-center border-t px-4 py-2 text-xs text-muted-foreground shrink-0'>
+        {emails.length > 0 && (
+          <p>
+            Showing {emails.length} email{emails.length !== 1 ? 's' : ''}
+            {hasMore && ' • Scroll for more'}
+          </p>
+        )}
       </div>
     </div>
   );
