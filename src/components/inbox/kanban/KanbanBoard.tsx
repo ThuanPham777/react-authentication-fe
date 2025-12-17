@@ -26,10 +26,10 @@ import type { KanbanBoardData, KanbanEmailItem } from '@/lib/api';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCardPreview } from './KanbanCardPreview';
 import {
-  COLUMN_TITLES,
   DEFAULT_KANBAN_STATUSES,
   type EmailStatus,
 } from '../../../constants/constants.kanban';
+import type { KanbanColumn as KanbanColumnConfig } from '@/types/kanban-config.types';
 
 /**
  * Finds a kanban item by messageId across all columns
@@ -61,6 +61,7 @@ function findItem(
  * @param loadingMap - Map of messageId to loading state
  * @param summarizingMap - Map of messageId to summarizing state
  * @param statuses - Array of column statuses (defaults to standard set)
+ * @param columnConfig - Dynamic column configuration
  */
 export function KanbanBoard({
   board,
@@ -70,6 +71,7 @@ export function KanbanBoard({
   loadingMap,
   summarizingMap,
   statuses = DEFAULT_KANBAN_STATUSES,
+  columnConfig,
 }: {
   board: KanbanBoardData;
   onMoveItem: (messageId: string, status: EmailStatus) => void;
@@ -78,6 +80,7 @@ export function KanbanBoard({
   loadingMap: Record<string, boolean>;
   summarizingMap: Record<string, boolean>;
   statuses?: EmailStatus[];
+  columnConfig?: KanbanColumnConfig[];
 }) {
   // ID of currently dragged card
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -94,12 +97,15 @@ export function KanbanBoard({
    */
   const columns = useMemo(
     () =>
-      statuses.map((st) => ({
-        status: st,
-        title: COLUMN_TITLES[st],
-        items: (board as any)[st] ?? [],
-      })),
-    [board, statuses]
+      statuses.map((st) => {
+        const config = columnConfig?.find((c) => c.id === st);
+        return {
+          status: st,
+          title: config?.name || st,
+          items: (board as any)[st] ?? [],
+        };
+      }),
+    [board, statuses, columnConfig]
   );
 
   /**

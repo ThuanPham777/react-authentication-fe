@@ -16,10 +16,11 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getKanbanBoard, type KanbanBoardData } from '@/lib/api';
 import { KanbanBoard } from './KanbanBoard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCcw } from 'lucide-react';
+import { Loader2, RefreshCcw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { KanbanSettingsModal } from './KanbanSettingsModal';
+import { useKanbanConfig } from '@/hooks/kanban/useKanbanConfig';
 import {
-  DEFAULT_KANBAN_STATUSES,
   KANBAN_PER_PAGE,
   MAX_AUTO_SUMMARIZE_ITEMS,
   MESSAGE_DISPLAY_DURATION,
@@ -28,6 +29,7 @@ import {
 import { useKanbanMutations } from '../../../hooks/kanban/useKanbanMutations';
 import { useKanbanFilters } from '../../../hooks/kanban/useKanbanFilters';
 import { needsSummary } from '../../../utils/kanbanUtils';
+import { GMAIL_URL_PREFIX } from '@/constants/constants.email';
 
 /**
  * Main kanban inbox view component
@@ -36,8 +38,47 @@ import { needsSummary } from '../../../utils/kanbanUtils';
 export function KanbanInboxView({ labelId }: { labelId?: string }) {
   const queryClient = useQueryClient();
   const [msg, setMsg] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const statuses = DEFAULT_KANBAN_STATUSES;
+  // Dynamic column configuration from backend
+  const {
+    columns: localColumns,
+    addColumn: addColumnBase,
+    updateColumn: updateColumnBase,
+    deleteColumn: deleteColumnBase,
+    reorderColumns: reorderColumnsBase,
+    resetToDefault: resetToDefaultBase,
+    isLoading: configLoading,
+    isSyncing,
+  } = useKanbanConfig();
+
+  // Wrap column operations to invalidate board query
+  const addColumn = async (name: string, gmailLabel?: string) => {
+    const result = await addColumnBase(name, gmailLabel);
+    queryClient.invalidateQueries({ queryKey });
+    return result;
+  };
+
+  const updateColumn = async (id: string, updates: Partial<any>) => {
+    await updateColumnBase(id, updates);
+    queryClient.invalidateQueries({ queryKey });
+  };
+
+  const deleteColumn = async (id: string) => {
+    await deleteColumnBase(id);
+    queryClient.invalidateQueries({ queryKey });
+  };
+
+  const reorderColumns = async (cols: any[]) => {
+    await reorderColumnsBase(cols);
+    queryClient.invalidateQueries({ queryKey });
+  };
+
+  const resetToDefault = async () => {
+    await resetToDefaultBase();
+    queryClient.invalidateQueries({ queryKey });
+  };
+
   const keyLabel = labelId ?? 'INBOX';
   const queryKey = ['kanban-board', keyLabel];
 
@@ -54,24 +95,38 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
       getKanbanBoard(labelId, pageParam, KANBAN_PER_PAGE),
     getNextPageParam: (lastPage) => lastPage.meta?.nextPageToken ?? undefined,
     initialPageParam: undefined as string | undefined,
+    enabled: !configLoading, // Wait for config to load first
   });
+
+  // Get columns from API response (first page) or fallback to local
+  const columns = useMemo(() => {
+    const firstPage = boardQuery.data?.pages?.[0];
+    return firstPage?.columns || localColumns;
+  }, [boardQuery.data?.pages, localColumns]);
+
+  // Use column IDs as statuses
+  const statuses = useMemo(
+    () => columns.map((col) => col.id as EmailStatus),
+    [columns]
+  );
 
   // Merge all pages into a single board
   const board: KanbanBoardData | undefined = useMemo(() => {
     if (!boardQuery.data?.pages) return undefined;
 
-    const merged: KanbanBoardData = {
-      INBOX: [],
-      TODO: [],
-      IN_PROGRESS: [],
-      DONE: [],
-      SNOOZED: [],
-    };
+    const merged: KanbanBoardData = {};
+
+    // Initialize dynamic status arrays
+    for (const status of statuses) {
+      merged[status] = [];
+    }
 
     // Combine all pages
     for (const page of boardQuery.data.pages) {
       for (const status of statuses) {
-        merged[status].push(...(page.data[status] || []));
+        if (page.data[status]) {
+          merged[status].push(...page.data[status]);
+        }
       }
     }
 
@@ -109,9 +164,16 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
 
   /**
    * Handles moving a card to a different column
+   * Automatically syncs Gmail labels if configured
    */
-  const onMoveItem = (messageId: string, status: EmailStatus) =>
-    moveMutation.mutate({ messageId, status });
+  const onMoveItem = (messageId: string, status: EmailStatus) => {
+    const column = columns.find((col) => col.id === status);
+    moveMutation.mutate({
+      messageId,
+      status,
+      gmailLabel: column?.gmailLabel,
+    });
+  };
 
   /**
    * Handles snoozing an email until a specific date
@@ -123,8 +185,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
    * Opens email in Gmail in new tab
    */
   const onOpenMail = (messageId: string) => {
-    // Gmail URL format: https://mail.google.com/mail/u/0/#inbox/{messageId}
-    const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${messageId}`;
+    const gmailUrl = `${GMAIL_URL_PREFIX}${messageId}`;
     window.open(gmailUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -258,6 +319,16 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
           <Button
             size='sm'
             variant='outline'
+            onClick={() => setSettingsOpen(true)}
+            className='gap-2'
+          >
+            <Settings className='h-4 w-4' />
+            Settings
+          </Button>
+
+          <Button
+            size='sm'
+            variant='outline'
             onClick={() => queryClient.invalidateQueries({ queryKey })}
             className='gap-2'
           >
@@ -284,6 +355,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             loadingMap={loadingMap}
             summarizingMap={summarizingMap}
             statuses={statuses}
+            columnConfig={columns}
           />
 
           {/* Invisible sentinel for auto-loading more */}
@@ -302,6 +374,19 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
           )}
         </>
       )}
+
+      {/* Kanban Settings Modal */}
+      <KanbanSettingsModal
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        columns={columns}
+        onAddColumn={addColumn}
+        onUpdateColumn={updateColumn}
+        onDeleteColumn={deleteColumn}
+        onReorderColumns={reorderColumns}
+        onResetToDefault={resetToDefault}
+        isSyncing={isSyncing}
+      />
     </div>
   );
 }

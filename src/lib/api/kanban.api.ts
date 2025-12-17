@@ -29,13 +29,14 @@ export const getKanbanBoard = async (
 
 export const updateKanbanStatus = async (
   messageId: string,
-  status: EmailStatus
+  status: EmailStatus,
+  gmailLabel?: string
 ) => {
   const safeId = encodeURIComponent(messageId);
   const res = await apiClient.patch<{
     status: 'success';
     data: KanbanEmailItem;
-  }>(`/api/kanban/items/${safeId}/status`, { status });
+  }>(`/api/kanban/items/${safeId}/status`, { status, gmailLabel });
   return res.data;
 };
 

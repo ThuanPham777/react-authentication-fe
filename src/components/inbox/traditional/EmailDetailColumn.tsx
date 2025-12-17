@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { MailIcon } from './MailIcon';
+import { GMAIL_URL_PREFIX } from '@/constants/constants.email';
 
 /**
  * EmailDetailColumn - Displays full email content with actions
@@ -213,10 +214,7 @@ export function EmailDetailColumn({
                 onClick={() => {
                   if (email?.id) {
                     const messageId = email.id.split('|')[1] || email.id;
-                    window.open(
-                      `https://mail.google.com/mail/u/0/#inbox/${messageId}`,
-                      '_blank'
-                    );
+                    window.open(`${GMAIL_URL_PREFIX}${messageId}`, '_blank');
                   }
                 }}
                 disabled={!email}

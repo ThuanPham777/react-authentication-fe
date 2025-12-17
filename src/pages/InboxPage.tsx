@@ -11,6 +11,7 @@ import { MailboxSidebar } from '../components/inbox/MailboxSidebar';
 import { ModeToggle, type InboxMode } from '../components/inbox/mode-toggle';
 import { TraditionalInboxView } from '../components/inbox/traditional/TraditionalInboxView';
 import { KanbanInboxView } from '../components/inbox/kanban/KanbanInboxView';
+import { GMAIL_URL_PREFIX } from '@/constants/constants.email';
 
 /**
  * InboxPage - Main inbox container with dual view modes
@@ -159,10 +160,9 @@ export default function InboxPage() {
                 loading={searchLoading}
                 error={searchError}
                 searchType={searchType}
-                onView={() => {
-                  setSearchResults(null);
-                  setMode('kanban');
-                  setSelectedMailbox('INBOX');
+                onView={(id) => {
+                  const gmailUrl = `${GMAIL_URL_PREFIX}${id}`;
+                  window.open(gmailUrl, '_blank', 'noopener,noreferrer');
                 }}
                 onClear={() => {
                   setSearchResults(null);

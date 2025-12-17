@@ -105,10 +105,12 @@ export function useKanbanMutations({
     mutationFn: ({
       messageId,
       status,
+      gmailLabel,
     }: {
       messageId: string;
       status: EmailStatus;
-    }) => updateKanbanStatus(messageId, status),
+      gmailLabel?: string;
+    }) => updateKanbanStatus(messageId, status, gmailLabel),
 
     onMutate: async ({ messageId, status }) => {
       // Set loading state
@@ -120,15 +122,21 @@ export function useKanbanMutations({
       // Snapshot current data for rollback
       const prev = queryClient.getQueryData<any>(queryKey);
 
-      // Optimistically update cache
-      if (prev?.data) {
-        const optimistic = patchBoardMove(
-          prev.data,
-          messageId,
-          status,
-          statuses
-        );
-        queryClient.setQueryData(queryKey, { ...prev, data: optimistic });
+      // Optimistically update cache (infinite query pages structure)
+      if (prev?.pages) {
+        const updatedPages = prev.pages.map((page: any) => {
+          if (page.data) {
+            const optimisticData = patchBoardMove(
+              page.data,
+              messageId,
+              status,
+              statuses
+            );
+            return { ...page, data: optimisticData };
+          }
+          return page;
+        });
+        queryClient.setQueryData(queryKey, { ...prev, pages: updatedPages });
       }
 
       return { prev, messageId };

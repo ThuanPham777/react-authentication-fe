@@ -1,3 +1,5 @@
+import { type KanbanColumn } from '@/types/kanban-config.types';
+
 export const EmailStatus = {
   INBOX: 'INBOX',
   TODO: 'TODO',
@@ -6,7 +8,7 @@ export const EmailStatus = {
   SNOOZED: 'SNOOZED',
 } as const;
 
-export type EmailStatus = (typeof EmailStatus)[keyof typeof EmailStatus];
+export type EmailStatus = string; // Dynamic status support
 
 export interface KanbanEmailItem {
   _id: string;
@@ -33,11 +35,7 @@ export interface KanbanEmailItem {
 }
 
 export interface KanbanBoardData {
-  INBOX: KanbanEmailItem[];
-  TODO: KanbanEmailItem[];
-  IN_PROGRESS: KanbanEmailItem[];
-  DONE: KanbanEmailItem[];
-  SNOOZED: KanbanEmailItem[];
+  [status: string]: KanbanEmailItem[]; // Dynamic columns
 }
 
 export interface KanbanBoardResponse {
@@ -47,12 +45,7 @@ export interface KanbanBoardResponse {
     pageSize: number;
     nextPageToken?: string | null;
     hasMore?: boolean;
-    total?: {
-      INBOX: number;
-      TODO: number;
-      IN_PROGRESS: number;
-      DONE: number;
-      SNOOZED: number;
-    };
+    total?: Record<string, number>;
   };
+  columns?: KanbanColumn[]; // Column configuration from backend
 }
