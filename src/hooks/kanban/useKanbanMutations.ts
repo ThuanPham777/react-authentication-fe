@@ -209,6 +209,22 @@ export function useKanbanMutations({
 
       // Optimistically update summary in cache
       const prev = queryClient.getQueryData<any>(queryKey);
+      if (prev?.pages) {
+        const updatedPages = prev.pages.map((page: any) => {
+          if (!page?.data) return page;
+          const patchedData = patchBoardSummary(
+            page.data,
+            variables.messageId,
+            summary,
+            statuses
+          );
+          return { ...page, data: patchedData };
+        });
+        queryClient.setQueryData(queryKey, { ...prev, pages: updatedPages });
+        return;
+      }
+
+      // Fallback for non-infinite queries
       if (prev?.data) {
         const patched = patchBoardSummary(
           prev.data,
