@@ -70,7 +70,7 @@ npm install
 Create `.env` file:
 
 ```env
-VITE_API_BASE_URL=http://localhost:4000
+VITE_API_BASE_URL=http://localhost:3000
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
@@ -125,8 +125,9 @@ The frontend will start on `http://localhost:5173`
 - `GET /api/emails/:id` - Email detail, metadata, attachments
 - `POST /api/emails/send` - Send email
 - `POST /api/emails/:id/reply` - Reply to an email
+- `POST /api/emails/:id/forward` - Forward an email
 - `POST /api/emails/:id/modify` - Modify email (mark read/unread, star, etc)
-- `GET /api/attachments/:id` - Download attachment
+- `GET /api/attachments/:id?emailId=...` - Download attachment
 
 ### Kanban Board
 
