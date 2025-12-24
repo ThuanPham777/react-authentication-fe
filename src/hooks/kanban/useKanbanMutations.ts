@@ -125,14 +125,14 @@ export function useKanbanMutations({
       // Optimistically update cache (infinite query pages structure)
       if (prev?.pages) {
         const updatedPages = prev.pages.map((page: any) => {
-          if (page.data) {
+          if (page.data?.data) {
             const optimisticData = patchBoardMove(
-              page.data,
+              page.data.data,
               messageId,
               status,
               statuses
             );
-            return { ...page, data: optimisticData };
+            return { ...page, data: { ...page.data, data: optimisticData } };
           }
           return page;
         });
@@ -211,14 +211,14 @@ export function useKanbanMutations({
       const prev = queryClient.getQueryData<any>(queryKey);
       if (prev?.pages) {
         const updatedPages = prev.pages.map((page: any) => {
-          if (!page?.data) return page;
+          if (!page?.data?.data) return page;
           const patchedData = patchBoardSummary(
-            page.data,
+            page.data.data,
             variables.messageId,
             summary,
             statuses
           );
-          return { ...page, data: patchedData };
+          return { ...page, data: { ...page.data, data: patchedData } };
         });
         queryClient.setQueryData(queryKey, { ...prev, pages: updatedPages });
         return;

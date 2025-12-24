@@ -95,29 +95,32 @@ export function useEmailMutations({
           ...old,
           pages: old.pages.map((page: any) => ({
             ...page,
-            data: page.data
-              .map((email: any) => {
-                if (email.id !== emailId) return email;
+            data: {
+              ...page.data,
+              data: page.data.data
+                .map((email: any) => {
+                  if (email.id !== emailId) return email;
 
-                // Apply state changes based on actions
-                return {
-                  ...email,
-                  unread: actions.markRead
-                    ? false
-                    : actions.markUnread
-                    ? true
-                    : email.unread,
-                  starred: actions.star
-                    ? true
-                    : actions.unstar
-                    ? false
-                    : email.starred,
-                };
-              })
-              .filter((email: any) => {
-                // Remove from list if it's a delete action
-                return !(actions.delete && email.id === emailId);
-              }),
+                  // Apply state changes based on actions
+                  return {
+                    ...email,
+                    unread: actions.markRead
+                      ? false
+                      : actions.markUnread
+                      ? true
+                      : email.unread,
+                    starred: actions.star
+                      ? true
+                      : actions.unstar
+                      ? false
+                      : email.starred,
+                  };
+                })
+                .filter((email: any) => {
+                  // Remove from list if it's a delete action
+                  return !(actions.delete && email.id === emailId);
+                }),
+            },
           })),
         };
       });

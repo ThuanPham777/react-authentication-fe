@@ -6,7 +6,10 @@ export interface Mailbox {
 
 export interface MailboxResponse {
   status: 'success';
-  data: Mailbox[];
+  message?: string;
+  data: {
+    mailboxes: Mailbox[];
+  };
 }
 
 export interface EmailListItem {
@@ -24,13 +27,16 @@ export interface EmailListItem {
 
 export interface MailboxEmailsResponse {
   status: 'success';
-  data: EmailListItem[];
-  meta: {
-    total?: number;
-    page?: number;
-    pageSize: number;
-    nextPageToken?: string | null;
-    hasMore?: boolean;
+  message?: string;
+  data: {
+    data: EmailListItem[];
+    meta: {
+      total?: number;
+      page?: number;
+      pageSize: number;
+      nextPageToken?: string | null;
+      hasMore?: boolean;
+    };
   };
 }
 
@@ -62,8 +68,10 @@ export interface SendEmailData {
 
 export interface SendEmailResponse {
   status: 'success';
-  message: string;
-  messageId: string;
+  message?: string;
+  data: {
+    messageId: string;
+  };
 }
 
 export interface ReplyEmailData {
@@ -73,8 +81,10 @@ export interface ReplyEmailData {
 
 export interface ReplyEmailResponse {
   status: 'success';
-  message: string;
-  messageId: string;
+  message?: string;
+  data: {
+    messageId: string;
+  };
 }
 
 export interface ModifyEmailData {
@@ -87,5 +97,6 @@ export interface ModifyEmailData {
 
 export interface ModifyEmailResponse {
   status: 'success';
-  message: string;
+  message?: string;
+  data: null;
 }

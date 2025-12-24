@@ -45,13 +45,13 @@ export default function Home() {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
+    <div className='min-h-screen bg-linear-to-br from-purple-50 via-pink-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
       <nav className='bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800'>
         <div className='container mx-auto px-4'>
           <div className='flex justify-between items-center h-16'>
             <div className='flex items-center gap-2'>
               <HomeIcon className='h-6 w-6 text-primary' />
-              <h1 className='text-xl font-bold'>Secure Inbox</h1>
+              <h1 className='text-xl font-bold'>Inbox workspace</h1>
             </div>
             <div className='flex items-center gap-4'>
               {user ? (
@@ -63,7 +63,7 @@ export default function Home() {
                     onClick={() => navigate('/inbox')}
                   >
                     <Inbox className='h-4 w-4' />
-                    Go to Inbox
+                    Open Inbox
                   </Button>
                   <div
                     className='relative'
@@ -151,17 +151,16 @@ export default function Home() {
       <div className='container mx-auto px-4 py-16'>
         <div className='text-center mb-12'>
           <p className='text-sm uppercase tracking-[0.3em] text-muted-foreground mb-3'>
-            Secure email sandbox
+            Gmail • Kanban • AI Search
           </p>
-          <h2 className='text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent'>
+          <h2 className='text-5xl font-bold mb-4 bg-linear-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent'>
             {user
               ? `Welcome back, ${user.email.split('@')[0]}!`
-              : 'Authenticate. Refresh. Collaborate.'}
+              : 'Sign in to manage your inbox.'}
           </h2>
           <p className='text-lg text-muted-foreground max-w-3xl mx-auto'>
-            End-to-end token handling, Google Sign-In, and a polished tri-pane
-            inbox mockup. Everything you need to demonstrate a production-ready
-            auth flow.
+            Organize emails on a kanban board, generate AI summaries, and use
+            fuzzy/semantic search with suggestions to find messages faster.
           </p>
           {!user && (
             <div className='mt-6 flex flex-wrap justify-center gap-4'>
@@ -192,7 +191,7 @@ export default function Home() {
                     <User className='h-5 w-5 text-primary' />
                     <CardTitle>User Profile</CardTitle>
                   </div>
-                  <CardDescription>Active session</CardDescription>
+                  <CardDescription>Signed-in session</CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-2'>
                   <div>
@@ -212,22 +211,21 @@ export default function Home() {
                 <CardHeader>
                   <div className='flex items-center gap-2'>
                     <Shield className='h-5 w-5 text-green-600' />
-                    <CardTitle>Token Health</CardTitle>
+                    <CardTitle>Kanban Board</CardTitle>
                   </div>
-                  <CardDescription>Auto refresh enabled</CardDescription>
+                  <CardDescription>Drag, snooze, summarize</CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-2'>
                   <p className='text-sm text-muted-foreground'>
-                    Access tokens live in-memory; refresh tokens stay in
-                    hardened storage. Automatic rotation covers expiry +
-                    concurrency.
+                    Move emails between columns, snooze items, and generate AI
+                    summaries to triage faster.
                   </p>
                   <Button
                     size='sm'
                     variant='outline'
                     onClick={() => navigate('/inbox')}
                   >
-                    View inbox
+                    Open inbox
                   </Button>
                 </CardContent>
               </Card>
@@ -236,21 +234,21 @@ export default function Home() {
                 <CardHeader>
                   <div className='flex items-center gap-2'>
                     <Inbox className='h-5 w-5 text-blue-600' />
-                    <CardTitle>Email Dashboard</CardTitle>
+                    <CardTitle>AI Search</CardTitle>
                   </div>
-                  <CardDescription>Three-column workspace</CardDescription>
+                  <CardDescription>Fuzzy + semantic search</CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-2'>
                   <p className='text-sm text-muted-foreground'>
-                    Browse folders, paginate messages, preview details, and
-                    interact with mocked attachments and actions.
+                    Search by keyword or meaning (Ctrl+Enter). Get suggestions
+                    while typing to speed up discovery.
                   </p>
                   <Button
                     size='sm'
                     className='gap-2'
                     onClick={() => navigate('/inbox')}
                   >
-                    Open dashboard <ArrowRight className='h-4 w-4' />
+                    Try it <ArrowRight className='h-4 w-4' />
                   </Button>
                 </CardContent>
               </Card>
@@ -276,8 +274,7 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <p className='text-sm text-muted-foreground'>
-                      Access protected inbox routes, trigger refresh tokens, and
-                      explore the post-login workspace.
+                      Sign in to access your inbox workspace and kanban board.
                     </p>
                   </CardContent>
                 </Card>
@@ -298,8 +295,8 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <p className='text-sm text-muted-foreground'>
-                      Register with validation, then hop into the secure inbox.
-                      Google Sign-In is supported on login.
+                      Create an account to start organizing emails and using AI
+                      features.
                     </p>
                   </CardContent>
                 </Card>
@@ -311,13 +308,13 @@ export default function Home() {
                 <CardHeader>
                   <div className='flex items-center gap-2'>
                     <Shield className='h-5 w-5 text-purple-600' />
-                    <CardTitle>Security-first</CardTitle>
+                    <CardTitle>Kanban workflow</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className='text-sm text-muted-foreground'>
-                    Short-lived access tokens + rotating refresh tokens with
-                    forced logout when anything goes stale.
+                    Organize emails into columns and keep track of what needs
+                    action.
                   </p>
                 </CardContent>
               </Card>
@@ -326,13 +323,13 @@ export default function Home() {
                 <CardHeader>
                   <div className='flex items-center gap-2'>
                     <Inbox className='h-5 w-5 text-blue-600' />
-                    <CardTitle>Mock API</CardTitle>
+                    <CardTitle>Search & suggestions</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className='text-sm text-muted-foreground'>
-                    Fully mocked folders, email list pagination, and detailed
-                    message bodies with attachments.
+                    Find emails quickly with fuzzy + semantic search and smart
+                    suggestions.
                   </p>
                 </CardContent>
               </Card>
@@ -341,13 +338,13 @@ export default function Home() {
                 <CardHeader>
                   <div className='flex items-center gap-2'>
                     <User className='h-5 w-5 text-green-600' />
-                    <CardTitle>Responsive UX</CardTitle>
+                    <CardTitle>AI summaries</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className='text-sm text-muted-foreground'>
-                    Desktop tri-pane layout collapses gracefully on mobile with
-                    keyboard-friendly navigation.
+                    Generate concise summaries so you can triage messages
+                    faster.
                   </p>
                 </CardContent>
               </Card>

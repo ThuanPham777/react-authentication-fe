@@ -57,10 +57,10 @@ export default function Login() {
   });
 
   // Dùng chung cho cả login password & login Google full
-  const handleSuccess = (data: LoginResponse) => {
-    setAccessToken(data.accessToken);
-    persistRefreshInfo(data.user, data.refreshToken);
-    setUser(data.user);
+  const handleSuccess = (response: LoginResponse) => {
+    setAccessToken(response.data.accessToken);
+    persistRefreshInfo(response.data.user, response.data.refreshToken);
+    setUser(response.data.user);
     navigate('/inbox', { replace: true });
   };
 
@@ -85,7 +85,7 @@ export default function Login() {
   };
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4'>
+    <div className='min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4'>
       <Card className='w-full max-w-md'>
         <CardHeader className='space-y-1 text-center'>
           <div className='flex items-center justify-between mb-4'>

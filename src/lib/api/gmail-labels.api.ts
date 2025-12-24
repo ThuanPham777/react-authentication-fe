@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/config/env';
+import apiClient from './client';
 
 export interface GmailLabel {
   id: string;
@@ -19,10 +18,11 @@ export interface LabelValidationResult {
  * Fetch all available Gmail labels for the current user
  */
 export async function getGmailLabels(): Promise<GmailLabel[]> {
-  const response = await axios.get(`${API_BASE_URL}/api/kanban/gmail-labels`, {
-    withCredentials: true,
-  });
-  return response.data.labels;
+  const response = await apiClient.get<{
+    status: 'success';
+    data: { labels: GmailLabel[] };
+  }>(`/api/kanban/gmail-labels`);
+  return response.data.data.labels;
 }
 
 /**
@@ -31,10 +31,9 @@ export async function getGmailLabels(): Promise<GmailLabel[]> {
 export async function validateGmailLabel(
   labelName: string
 ): Promise<LabelValidationResult> {
-  const response = await axios.post(
-    `${API_BASE_URL}/api/kanban/validate-label`,
-    { labelName },
-    { withCredentials: true }
-  );
-  return response.data;
+  const response = await apiClient.post<{
+    status: 'success';
+    data: LabelValidationResult;
+  }>(`/api/kanban/validate-label`, { labelName });
+  return response.data.data;
 }

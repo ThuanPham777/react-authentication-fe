@@ -1,13 +1,16 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Search, CheckCircle } from 'lucide-react';
 import type { KanbanEmailItem } from '@/lib/api';
+import type { KanbanColumn } from '@/types/kanban-config.types';
+
+function initials(name?: string) {
+  if (!name) return 'U';
+  const parts = name.trim().split(/\s+/);
+  const a = parts[0]?.[0] ?? '';
+  const b = parts[1]?.[0] ?? '';
+  return (a + b).toUpperCase() || 'U';
+}
 
 export function SearchResults({
   items,
@@ -16,6 +19,7 @@ export function SearchResults({
   loading = false,
   error = null,
   searchType = 'fuzzy',
+  columns,
 }: {
   items: KanbanEmailItem[];
   onView: (id: string) => void;
@@ -23,7 +27,20 @@ export function SearchResults({
   loading?: boolean;
   error?: string | null;
   searchType?: 'fuzzy' | 'semantic';
+  columns?: KanbanColumn[];
 }) {
+  const statusLabel = (status?: string) => {
+    if (!status) return '';
+    const colName = columns?.find((c) => c.id === status)?.name;
+    if (colName) return colName;
+    if (status.startsWith('col_')) return status;
+    return status
+      .toLowerCase()
+      .split('_')
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(' ');
+  };
+
   return (
     <div className='space-y-3'>
       <div className='flex items-center justify-between'>
@@ -92,7 +109,7 @@ export function SearchResults({
             Found {items.length} result{items.length !== 1 ? 's' : ''}
           </div>
           <div className='space-y-2'>
-            {items.map((it: any) => (
+            {items.map((it) => (
               <Card
                 key={it.messageId}
                 className='p-3 hover:bg-accent/50 transition-colors'
@@ -100,19 +117,37 @@ export function SearchResults({
                 <CardHeader>
                   <div className='flex items-start justify-between gap-4'>
                     <div className='flex-1 min-w-0'>
-                      <div className='flex items-center gap-2'>
-                        <CardTitle className='truncate'>
-                          {it.subject ?? '(No subject)'}
-                        </CardTitle>
-                        {it._score !== undefined && (
-                          <span className='text-xs bg-primary/10 text-primary px-2 py-0.5 rounded'>
-                            {Math.round((1 - it._score) * 100)}% match
-                          </span>
-                        )}
+                      <div className='flex items-start gap-3'>
+                        <div className='flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-semibold shrink-0'>
+                          {initials(it.senderName)}
+                        </div>
+
+                        <div className='min-w-0 flex-1'>
+                          <div className='flex items-center justify-between gap-2'>
+                            <div className='min-w-0'>
+                              <p className='text-sm font-semibold line-clamp-1'>
+                                {it.senderName ?? 'Unknown'}
+                              </p>
+                              {it.senderEmail && (
+                                <p className='text-xs text-muted-foreground line-clamp-1'>
+                                  {it.senderEmail}
+                                </p>
+                              )}
+                            </div>
+
+                            {(it._searchType ?? searchType) === 'fuzzy' &&
+                              it._score !== undefined && (
+                                <span className='text-xs bg-primary/10 text-primary px-2 py-0.5 rounded shrink-0'>
+                                  {Math.round((1 - it._score) * 100)}% match
+                                </span>
+                              )}
+                          </div>
+
+                          <CardTitle className='mt-2 truncate'>
+                            {it.subject ?? '(No subject)'}
+                          </CardTitle>
+                        </div>
                       </div>
-                      <CardDescription className='truncate'>
-                        {it.senderName ?? it.senderEmail}
-                      </CardDescription>
                     </div>
                     <div className='text-right shrink-0'>
                       <p className='text-xs text-muted-foreground whitespace-nowrap'>
@@ -124,7 +159,7 @@ export function SearchResults({
                         <div className='flex items-center gap-1 mt-1'>
                           <CheckCircle className='h-3 w-3' />
                           <span className='text-xs capitalize'>
-                            {it.status.toLowerCase().replace('_', ' ')}
+                            {statusLabel(it.status)}
                           </span>
                         </div>
                       )}
@@ -132,9 +167,18 @@ export function SearchResults({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-sm text-muted-foreground line-clamp-2'>
-                    {it.summary || it.snippet || 'No preview available'}
-                  </p>
+                  {it.summary ? (
+                    <div className='rounded-lg bg-muted/40 p-2'>
+                      <p className='text-[10px] font-semibold text-muted-foreground'>
+                        AI Summary
+                      </p>
+                      <p className='text-xs leading-relaxed'>{it.summary}</p>
+                    </div>
+                  ) : (
+                    <p className='text-sm text-muted-foreground line-clamp-2'>
+                      {it.snippet || 'Summary pending...'}
+                    </p>
+                  )}
                 </CardContent>
                 <div className='px-3 pb-3 flex gap-2'>
                   <Button
@@ -145,7 +189,7 @@ export function SearchResults({
                   </Button>
                   {it.status && (
                     <span className='text-xs text-muted-foreground self-center'>
-                      Currently in: {it.status}
+                      Currently in: {statusLabel(it.status)}
                     </span>
                   )}
                 </div>

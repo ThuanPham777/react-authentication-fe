@@ -44,8 +44,8 @@ export function SearchBarWithSuggestions({
       setLoading(true);
       try {
         const resp = await getSearchSuggestions(value, 5);
-        setSuggestions(resp.data);
-        setShowSuggestions(resp.data.length > 0);
+        setSuggestions(resp.data?.results ?? []);
+        setShowSuggestions(resp.data?.results?.length > 0);
       } catch (err) {
         console.error('Failed to fetch suggestions:', err);
         setSuggestions([]);

@@ -60,7 +60,8 @@ export function TraditionalInboxView({
     queryFn: ({ pageParam }) =>
       getMailboxEmailsInfinite(mailboxId, pageParam, EMAILS_PER_PAGE),
     enabled: !!mailboxId,
-    getNextPageParam: (lastPage) => lastPage.meta.nextPageToken ?? undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.data.meta.nextPageToken ?? undefined,
     initialPageParam: undefined as string | undefined,
   });
 
@@ -68,7 +69,7 @@ export function TraditionalInboxView({
    * Flatten paginated data into single array
    */
   const allEmails = useMemo(() => {
-    return emailsQuery.data?.pages.flatMap((page) => page.data) ?? [];
+    return emailsQuery.data?.pages.flatMap((page) => page.data.data) ?? [];
   }, [emailsQuery.data]);
 
   /**

@@ -93,7 +93,8 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     queryKey,
     queryFn: ({ pageParam }) =>
       getKanbanBoard(labelId, pageParam, KANBAN_PER_PAGE),
-    getNextPageParam: (lastPage) => lastPage.meta?.nextPageToken ?? undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.data.meta?.nextPageToken ?? undefined,
     initialPageParam: undefined as string | undefined,
     enabled: !configLoading, // Wait for config to load first
   });
@@ -101,13 +102,13 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
   // Get columns from API response (first page) or fallback to local
   const columns = useMemo(() => {
     const firstPage = boardQuery.data?.pages?.[0];
-    return firstPage?.columns || localColumns;
+    return firstPage?.data.columns || localColumns;
   }, [boardQuery.data?.pages, localColumns]);
 
   // Get warnings from API response
   const warnings = useMemo(() => {
     const firstPage = boardQuery.data?.pages?.[0];
-    return firstPage?.warnings || [];
+    return firstPage?.data.warnings || [];
   }, [boardQuery.data?.pages]);
 
   // Use column IDs as statuses
@@ -130,8 +131,8 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     // Combine all pages
     for (const page of boardQuery.data.pages) {
       for (const status of statuses) {
-        if (page.data[status]) {
-          merged[status].push(...page.data[status]);
+        if (page.data.data[status]) {
+          merged[status].push(...page.data.data[status]);
         }
       }
     }
@@ -258,6 +259,8 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
 
     // Request summaries for items not yet requested
     for (const item of limited) {
+      // Skip items without messageId
+      if (!item.messageId) continue;
       if (requestedSet.current.has(item.messageId)) continue;
       requestedSet.current.add(item.messageId);
       summarizeMutation.mutate({ messageId: item.messageId });

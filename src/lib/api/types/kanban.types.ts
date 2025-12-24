@@ -34,6 +34,10 @@ export interface KanbanEmailItem {
 
   createdAt?: string;
   updatedAt?: string;
+
+  // Search-only metadata
+  _score?: number;
+  _searchType?: 'fuzzy' | 'semantic';
 }
 
 export interface KanbanBoardData {
@@ -42,17 +46,20 @@ export interface KanbanBoardData {
 
 export interface KanbanBoardResponse {
   status: 'success';
-  data: KanbanBoardData;
-  meta: {
-    pageSize: number;
-    nextPageToken?: string | null;
-    hasMore?: boolean;
-    total?: Record<string, number>;
+  message?: string;
+  data: {
+    data: KanbanBoardData;
+    meta: {
+      pageSize: number;
+      nextPageToken?: string | null;
+      hasMore?: boolean;
+      total?: Record<string, number>;
+    };
+    columns?: KanbanColumn[]; // Column configuration from backend
+    warnings?: Array<{
+      columnId: string;
+      message: string;
+      type: 'warning' | 'error';
+    }>; // Gmail label validation warnings
   };
-  columns?: KanbanColumn[]; // Column configuration from backend
-  warnings?: Array<{
-    columnId: string;
-    message: string;
-    type: 'warning' | 'error';
-  }>; // Gmail label validation warnings
 }

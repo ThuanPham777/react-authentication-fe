@@ -59,25 +59,31 @@ export const summarizeKanbanItem = async (messageId: string) => {
 };
 
 export const searchKanban = async (q: string) => {
-  const res = await apiClient.get<{ status: 'success'; data: any[] }>(
-    `/api/kanban/search`,
-    { params: { q } }
-  );
+  const res = await apiClient.get<{
+    status: 'success';
+    data: { results: KanbanEmailItem[] };
+  }>(`/api/kanban/search`, { params: { q } });
   return res.data;
 };
 
 export const semanticSearchKanban = async (query: string, limit?: number) => {
-  const res = await apiClient.post<{ status: 'success'; data: any[] }>(
-    `/api/kanban/search/semantic`,
-    { query, limit }
-  );
+  const res = await apiClient.post<{
+    status: 'success';
+    data: { results: KanbanEmailItem[] };
+  }>(`/api/kanban/search/semantic`, { query, limit });
   return res.data;
 };
 
 export const getSearchSuggestions = async (q: string, limit?: number) => {
   const res = await apiClient.get<{
     status: 'success';
-    data: Array<{ type: 'contact' | 'keyword'; text: string; value: string }>;
+    data: {
+      results: Array<{
+        type: 'contact' | 'keyword';
+        text: string;
+        value: string;
+      }>;
+    };
   }>(`/api/kanban/search/suggestions`, { params: { q, limit } });
   return res.data;
 };

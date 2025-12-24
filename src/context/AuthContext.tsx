@@ -85,9 +85,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       try {
-        const data = await rotateTokens(storedRefresh);
-        setAccessToken(data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        const response = await rotateTokens(storedRefresh);
+        setAccessToken(response.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
         touchRefreshWatcher();
       } catch {
         clearAllAuth();

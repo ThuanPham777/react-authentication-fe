@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { searchKanban, semanticSearchKanban } from '@/lib/api/kanban.api';
+import { getKanbanColumns } from '@/lib/api/kanban-config.api';
 import { SearchResults } from '../components/inbox/SearchResults';
 import { SearchBarWithSuggestions } from '../components/inbox/SearchBarWithSuggestions';
 import { MailboxSidebar } from '../components/inbox/MailboxSidebar';
@@ -63,7 +64,7 @@ export default function InboxPage() {
       const resp = isSemanticSearch
         ? await semanticSearchKanban(q.trim())
         : await searchKanban(q.trim());
-      setSearchResults(resp.data ?? []);
+      setSearchResults(resp.data?.results ?? []);
     } catch (err: any) {
       setSearchError(err?.message ?? 'Search failed');
     } finally {
@@ -77,14 +78,21 @@ export default function InboxPage() {
     queryFn: getMailboxes,
   });
 
+  const kanbanColumnsQuery = useQuery({
+    queryKey: ['kanban-columns'],
+    queryFn: getKanbanColumns,
+    enabled: mode === 'kanban',
+    staleTime: 60_000,
+  });
+
   /**
    * Auto-select first mailbox when entering traditional mode
    * Ensures there's always a selected mailbox in traditional view
    */
   useEffect(() => {
     if (mode === 'traditional') {
-      if (!selectedMailbox && mailboxesQuery.data?.data.length) {
-        setSelectedMailbox(mailboxesQuery.data.data[0].id);
+      if (!selectedMailbox && mailboxesQuery.data?.data.mailboxes.length) {
+        setSelectedMailbox(mailboxesQuery.data.data.mailboxes[0].id);
       }
     }
   }, [mailboxesQuery.data, selectedMailbox, mode]);
@@ -160,6 +168,7 @@ export default function InboxPage() {
                 loading={searchLoading}
                 error={searchError}
                 searchType={searchType}
+                columns={kanbanColumnsQuery.data}
                 onView={(id) => {
                   const gmailUrl = `${GMAIL_URL_PREFIX}${id}`;
                   window.open(gmailUrl, '_blank', 'noopener,noreferrer');
@@ -174,7 +183,7 @@ export default function InboxPage() {
           ) : mode === 'traditional' ? (
             <div className='grid gap-4 lg:grid-cols-[18%_82%] h-full min-h-0'>
               <MailboxSidebar
-                mailboxes={mailboxesQuery.data?.data ?? []}
+                mailboxes={mailboxesQuery.data?.data.mailboxes ?? []}
                 isLoading={mailboxesQuery.isLoading}
                 selectedId={selectedMailbox}
                 onSelect={setSelectedMailbox}
