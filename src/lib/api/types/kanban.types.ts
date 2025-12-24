@@ -50,4 +50,9 @@ export interface KanbanBoardResponse {
     total?: Record<string, number>;
   };
   columns?: KanbanColumn[]; // Column configuration from backend
+  warnings?: Array<{
+    columnId: string;
+    message: string;
+    type: 'warning' | 'error';
+  }>; // Gmail label validation warnings
 }

@@ -16,7 +16,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getKanbanBoard, type KanbanBoardData } from '@/lib/api';
 import { KanbanBoard } from './KanbanBoard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCcw, Settings } from 'lucide-react';
+import { Loader2, RefreshCcw, Settings, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KanbanSettingsModal } from './KanbanSettingsModal';
 import { useKanbanConfig } from '@/hooks/kanban/useKanbanConfig';
@@ -103,6 +103,12 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     const firstPage = boardQuery.data?.pages?.[0];
     return firstPage?.columns || localColumns;
   }, [boardQuery.data?.pages, localColumns]);
+
+  // Get warnings from API response
+  const warnings = useMemo(() => {
+    const firstPage = boardQuery.data?.pages?.[0];
+    return firstPage?.warnings || [];
+  }, [boardQuery.data?.pages]);
 
   // Use column IDs as statuses
   const statuses = useMemo(
@@ -263,6 +269,36 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
       {msg && (
         <Alert>
           <AlertDescription>{msg}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Show warnings for invalid Gmail labels */}
+      {warnings.length > 0 && (
+        <Alert variant='destructive'>
+          <AlertCircle className='h-4 w-4' />
+          <AlertDescription>
+            <div className='font-semibold mb-1'>
+              Column Configuration Issues:
+            </div>
+            <ul className='list-disc list-inside space-y-1'>
+              {warnings.map((w: any, i: number) => (
+                <li
+                  key={i}
+                  className='text-sm'
+                >
+                  {w.message}
+                </li>
+              ))}
+            </ul>
+            <Button
+              size='sm'
+              variant='outline'
+              className='mt-2'
+              onClick={() => setSettingsOpen(true)}
+            >
+              Fix in Settings
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 

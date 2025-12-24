@@ -3,7 +3,8 @@
  * Allows users to configure, create, rename, and delete columns
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { type KanbanColumn } from '@/types/kanban-config.types';
+import { getGmailLabels, type GmailLabel } from '@/lib/api/gmail-labels.api';
+import { GMAIL_SYSTEM_LABELS } from '@/constants/constants.gmail';
 import {
   Plus,
   Trash2,
@@ -22,6 +25,7 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Info,
 } from 'lucide-react';
 
 interface KanbanSettingsModalProps {
@@ -50,19 +54,122 @@ export function KanbanSettingsModal({
   const [newColumnName, setNewColumnName] = useState('');
   const [newGmailLabel, setNewGmailLabel] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [editingLabel, setEditingLabel] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [message, setMessage] = useState<{
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'warning';
     text: string;
   } | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [labelValidation, setLabelValidation] = useState<string | null>(null);
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
+  // Fetch available Gmail labels
+  const { data: gmailLabels = [] } = useQuery<GmailLabel[]>({
+    queryKey: ['gmail-labels'],
+    queryFn: getGmailLabels,
+    enabled: open,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Filter labels based on input
+  const filteredLabels = gmailLabels.filter((label) =>
+    label.name.toLowerCase().includes(newGmailLabel.toLowerCase().trim())
+  );
+
+  // Validate label on blur or when user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (newGmailLabel.trim()) {
+        const trimmed = newGmailLabel.trim();
+
+        // Check for duplicate label in existing columns
+        const duplicateLabel = columns.find(
+          (col) =>
+            col.gmailLabel &&
+            col.gmailLabel.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (duplicateLabel) {
+          setLabelValidation(
+            `❌ Label "${trimmed}" is already used by column "${duplicateLabel.name}"`
+          );
+          return;
+        }
+
+        // Check if it's a known system label (these always exist)
+        if (GMAIL_SYSTEM_LABELS.includes(trimmed.toUpperCase() as any)) {
+          setLabelValidation(`✓ System label: ${trimmed.toUpperCase()}`);
+          return;
+        }
+
+        // Check if label exists in Gmail
+        const exactMatch = gmailLabels.find(
+          (l) => l.name.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (exactMatch) {
+          setLabelValidation(`✓ Label exists: ${exactMatch.name}`);
+        } else {
+          const suggestions = gmailLabels
+            .filter((l) => l.name.toLowerCase().includes(trimmed.toLowerCase()))
+            .slice(0, 3);
+          if (suggestions.length > 0) {
+            setLabelValidation(
+              `⚠️ Label not found. Did you mean: ${suggestions
+                .map((s) => s.name)
+                .join(', ')}?`
+            );
+          } else {
+            setLabelValidation(
+              `⚠️ Label "${newGmailLabel}" not found in Gmail. It will be used as-is.`
+            );
+          }
+        }
+      } else {
+        setLabelValidation(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [newGmailLabel, gmailLabels, columns]);
+
+  const showMessage = (type: 'success' | 'error' | 'warning', text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 3000);
   };
 
   const handleAddColumn = async () => {
     if (!newColumnName.trim() || isAdding) return;
+
+    // Client-side validation: Check for duplicate name (case-insensitive)
+    const duplicateName = columns.find(
+      (col) => col.name.toLowerCase() === newColumnName.trim().toLowerCase()
+    );
+    if (duplicateName) {
+      showMessage(
+        'error',
+        `Column name "${newColumnName.trim()}" is already used. Please choose a different name.`
+      );
+      return;
+    }
+
+    // Client-side validation: Check for duplicate Gmail label (case-insensitive, skip empty)
+    if (newGmailLabel.trim()) {
+      const duplicateLabel = columns.find(
+        (col) =>
+          col.gmailLabel &&
+          col.gmailLabel.toLowerCase() === newGmailLabel.trim().toLowerCase()
+      );
+      if (duplicateLabel) {
+        showMessage(
+          'error',
+          `Gmail label "${newGmailLabel.trim()}" is already used by column "${
+            duplicateLabel.name
+          }". Each label can only be assigned to one column.`
+        );
+        return;
+      }
+    }
+
     setIsAdding(true);
     try {
       await onAddColumn(
@@ -71,6 +178,7 @@ export function KanbanSettingsModal({
       );
       setNewColumnName('');
       setNewGmailLabel('');
+      setLabelValidation(null);
       showMessage('success', 'Column added successfully');
     } catch (error: any) {
       const errorMsg =
@@ -109,12 +217,58 @@ export function KanbanSettingsModal({
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleUpdateColumn = async (
-    id: string,
-    updates: Partial<KanbanColumn>
-  ) => {
+  const handleStartEdit = (column: KanbanColumn) => {
+    setEditingId(column.id);
+    setEditingName(column.name);
+    setEditingLabel(column.gmailLabel || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    if (!editingName.trim()) {
+      showMessage('error', 'Column name cannot be empty');
+      return;
+    }
+
+    // Client-side validation: Check for duplicate name (exclude current column)
+    const duplicateName = columns.find(
+      (col) =>
+        col.id !== editingId &&
+        col.name.toLowerCase() === editingName.trim().toLowerCase()
+    );
+    if (duplicateName) {
+      showMessage(
+        'error',
+        `Column name "${editingName.trim()}" is already used. Please choose a different name.`
+      );
+      return;
+    }
+
+    // Client-side validation: Check for duplicate Gmail label (exclude current column, skip empty)
+    if (editingLabel.trim()) {
+      const duplicateLabel = columns.find(
+        (col) =>
+          col.id !== editingId &&
+          col.gmailLabel &&
+          col.gmailLabel.toLowerCase() === editingLabel.trim().toLowerCase()
+      );
+      if (duplicateLabel) {
+        showMessage(
+          'error',
+          `Gmail label "${editingLabel.trim()}" is already used by column "${
+            duplicateLabel.name
+          }". Each label can only be assigned to one column.`
+        );
+        return;
+      }
+    }
+
     try {
-      await onUpdateColumn(id, updates);
+      await onUpdateColumn(editingId, {
+        name: editingName.trim() || undefined,
+        gmailLabel: editingLabel.trim() || undefined,
+      });
+      setEditingId(null);
       showMessage('success', 'Column updated successfully');
     } catch (error: any) {
       const errorMsg =
@@ -123,6 +277,12 @@ export function KanbanSettingsModal({
         'Failed to update column';
       showMessage('error', errorMsg);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingName('');
+    setEditingLabel('');
   };
 
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
@@ -151,15 +311,25 @@ export function KanbanSettingsModal({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='max-w-2xl max-h-[80vh] overflow-y-auto'>
+      <DialogContent className='max-w-xl max-h-[80vh] overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>Kanban Board Settings</DialogTitle>
         </DialogHeader>
 
         {message && (
-          <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
+          <Alert
+            variant={
+              message.type === 'error'
+                ? 'destructive'
+                : message.type === 'warning'
+                ? 'default'
+                : 'default'
+            }
+          >
             {message.type === 'success' ? (
               <CheckCircle2 className='h-4 w-4' />
+            ) : message.type === 'warning' ? (
+              <Info className='h-4 w-4' />
             ) : (
               <AlertCircle className='h-4 w-4' />
             )}
@@ -192,14 +362,58 @@ export function KanbanSettingsModal({
                   htmlFor='gmail-label'
                   className='text-xs'
                 >
-                  Gmail Label (optional)
+                  Gmail Label{' '}
+                  <span className='text-muted-foreground'>
+                    (optional - empty = archive)
+                  </span>
                 </Label>
-                <Input
-                  id='gmail-label'
-                  placeholder='e.g., URGENT'
-                  value={newGmailLabel}
-                  onChange={(e) => setNewGmailLabel(e.target.value)}
-                />
+                <div className='relative'>
+                  <Input
+                    id='gmail-label'
+                    placeholder='e.g., INBOX, STARRED, IMPORTANT, or leave empty'
+                    value={newGmailLabel}
+                    onChange={(e) => {
+                      setNewGmailLabel(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() =>
+                      setTimeout(() => setShowSuggestions(false), 200)
+                    }
+                    title='System labels: INBOX, STARRED, IMPORTANT. Custom labels: use label name. Leave empty: archives email (removes INBOX).'
+                  />
+                  {/* Autocomplete dropdown */}
+                  {showSuggestions &&
+                    newGmailLabel.trim() &&
+                    filteredLabels.length > 0 && (
+                      <div className='absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto'>
+                        {filteredLabels.slice(0, 10).map((label) => (
+                          <div
+                            key={label.id}
+                            className='px-3 py-2 hover:bg-accent cursor-pointer text-sm'
+                            onClick={() => {
+                              setNewGmailLabel(label.name);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <div className='font-medium'>{label.name}</div>
+                            <div className='text-xs text-muted-foreground'>
+                              {label.type === 'system'
+                                ? 'System label'
+                                : 'Custom label'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+                {/* Validation message */}
+                {labelValidation && (
+                  <p className='text-xs mt-1 text-muted-foreground flex items-center gap-1'>
+                    <Info className='h-3 w-3' />
+                    {labelValidation}
+                  </p>
+                )}
               </div>
               <div className='col-span-2 flex items-end'>
                 <Button
@@ -259,29 +473,40 @@ export function KanbanSettingsModal({
                   {editingId === column.id ? (
                     <>
                       <Input
-                        value={column.name}
-                        onChange={(e) =>
-                          handleUpdateColumn(column.id, {
-                            name: e.target.value,
-                          })
-                        }
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEdit();
+                          if (e.key === 'Escape') handleCancelEdit();
+                        }}
                         className='flex-1'
                         autoFocus
                       />
                       <Input
-                        value={column.gmailLabel || ''}
-                        onChange={(e) =>
-                          handleUpdateColumn(column.id, {
-                            gmailLabel: e.target.value,
-                          })
-                        }
-                        placeholder='Gmail label'
+                        value={editingLabel}
+                        onChange={(e) => setEditingLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEdit();
+                          if (e.key === 'Escape') handleCancelEdit();
+                        }}
+                        placeholder='Gmail label (empty = archive)'
+                        title='System labels: INBOX, STARRED, IMPORTANT. Custom: label name. Empty: archives.'
                         className='flex-1'
                       />
                       <Button
                         size='sm'
                         variant='ghost'
-                        onClick={() => setEditingId(null)}
+                        onClick={handleSaveEdit}
+                        disabled={!editingName.trim()}
+                        title='Save (Enter)'
+                      >
+                        <CheckCircle2 className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant='ghost'
+                        onClick={handleCancelEdit}
+                        title='Cancel (Esc)'
                       >
                         <X className='h-4 w-4' />
                       </Button>
@@ -301,7 +526,7 @@ export function KanbanSettingsModal({
                       <Button
                         size='sm'
                         variant='ghost'
-                        onClick={() => setEditingId(column.id)}
+                        onClick={() => handleStartEdit(column)}
                       >
                         Edit
                       </Button>
@@ -324,7 +549,16 @@ export function KanbanSettingsModal({
 
           <div className='text-xs text-muted-foreground space-y-1'>
             <p>• Drag columns to reorder them</p>
-            <p>• Gmail labels will sync when you move cards between columns</p>
+            <p>• Click "Edit" to rename a column or update its Gmail label</p>
+            <p>• Press Enter to save changes, Esc to cancel</p>
+            <p>
+              • Gmail labels: Use system labels (STARRED, IMPORTANT) or custom
+              label names from your Gmail
+            </p>
+            <p>
+              • When you move a card to a column, the Gmail label will be
+              automatically applied
+            </p>
             <p>• Leave Gmail label empty if you don't want label syncing</p>
           </div>
         </div>
