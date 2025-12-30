@@ -29,13 +29,15 @@ import {
 import { useKanbanMutations } from '../../../hooks/kanban/useKanbanMutations';
 import { useKanbanFilters } from '../../../hooks/kanban/useKanbanFilters';
 import { needsSummary } from '../../../utils/kanbanUtils';
-import { GMAIL_URL_PREFIX } from '@/constants/constants.email';
+import { getGmailUrl } from '@/utils/emailUtils';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Main kanban inbox view component
  * @param labelId - Gmail label ID (defaults to INBOX)
  */
 export function KanbanInboxView({ labelId }: { labelId?: string }) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [msg, setMsg] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -230,7 +232,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
    * Opens email in Gmail in new tab
    */
   const onOpenMail = (messageId: string) => {
-    const gmailUrl = `${GMAIL_URL_PREFIX}${messageId}`;
+    const gmailUrl = getGmailUrl(messageId, user?.email);
     window.open(gmailUrl, '_blank', 'noopener,noreferrer');
   };
 

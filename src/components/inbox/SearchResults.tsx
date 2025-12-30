@@ -135,12 +135,17 @@ export function SearchResults({
                               )}
                             </div>
 
-                            {(it._searchType ?? searchType) === 'fuzzy' &&
-                              it._score !== undefined && (
-                                <span className='text-xs bg-primary/10 text-primary px-2 py-0.5 rounded shrink-0'>
-                                  {Math.round((1 - it._score) * 100)}% match
-                                </span>
-                              )}
+                            {it._score !== undefined && (
+                              <span className='text-xs bg-primary/10 text-primary px-2 py-0.5 rounded shrink-0'>
+                                {/* Fuzzy: lower score = better (invert), Semantic: higher score = better */}
+                                {Math.round(
+                                  ((it._searchType ?? searchType) === 'semantic'
+                                    ? it._score
+                                    : 1 - it._score) * 100
+                                )}
+                                % match
+                              </span>
+                            )}
                           </div>
 
                           <CardTitle className='mt-2 truncate'>

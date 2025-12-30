@@ -36,4 +36,4 @@ export const MAX_PREVIEW_LENGTH = 150;
 /**
  * Gmail URL prefix for opening emails directly
  */
-export const GMAIL_URL_PREFIX = 'https://mail.google.com/mail/u/0/#inbox/';
+export const GMAIL_URL_PREFIX = 'https://mail.google.com/mail/#inbox/';

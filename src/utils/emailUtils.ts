@@ -3,6 +3,23 @@
  */
 
 /**
+ * Generates Gmail URL for a specific message with the correct account
+ * @param messageId - The Gmail message ID
+ * @param userEmail - The email address of the logged-in user (optional)
+ * @returns Gmail URL that opens the message in the correct account
+ */
+export function getGmailUrl(messageId: string, userEmail?: string): string {
+  if (userEmail) {
+    // Use authuser parameter to force Gmail to open in the correct account
+    return `https://mail.google.com/mail/?authuser=${encodeURIComponent(
+      userEmail
+    )}#inbox/${messageId}`;
+  }
+  // Fallback to default (will open in primary account)
+  return `https://mail.google.com/mail/#inbox/${messageId}`;
+}
+
+/**
  * Downloads an attachment by creating a temporary anchor element
  * @param blob - The file blob to download
  * @param fileName - The name for the downloaded file

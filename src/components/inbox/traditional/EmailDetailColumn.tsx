@@ -13,7 +13,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { MailIcon } from './MailIcon';
-import { GMAIL_URL_PREFIX } from '@/constants/constants.email';
+import { getGmailUrl } from '@/utils/emailUtils';
+import { useAuth } from '@/context/AuthContext';
 
 function sanitizeEmailHtml(html: string) {
   // Email bodies can contain <style> tags that leak into the whole app and
@@ -94,6 +95,7 @@ export function EmailDetailColumn({
   isLoadingAction?: boolean;
   onForward?: (email: EmailDetail) => void;
 }) {
+  const { user } = useAuth();
   // Reply composer state
   const [replyMode, setReplyMode] = useState<'reply' | 'replyAll' | null>(null);
   const [replyBody, setReplyBody] = useState('');
@@ -246,7 +248,7 @@ export function EmailDetailColumn({
                 onClick={() => {
                   if (email?.id) {
                     const messageId = email.id.split('|')[1] || email.id;
-                    window.open(`${GMAIL_URL_PREFIX}${messageId}`, '_blank');
+                    window.open(getGmailUrl(messageId, user?.email), '_blank');
                   }
                 }}
                 disabled={!email}
