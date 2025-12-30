@@ -75,22 +75,14 @@ export const getMailboxEmailsInfiniteCached = async (
   // Try cache first
   const cached = await getCachedEmailList(mailboxId, pageToken);
 
-  // Start fresh fetch in background
-  const fetchPromise = baseApi
-    .getMailboxEmailsInfinite(mailboxId, pageToken, pageSize)
-    .then(async (response) => {
-      // Cache the fresh data
-      await cacheEmailList(
-        mailboxId,
-        response.data.meta.nextPageToken || null,
-        response.data.data,
-        response.data.meta
-      );
-      return response;
-    });
+  // IMPORTANT:
+  // - Cache must be keyed by the *current* pageToken (the request cursor), not nextPageToken.
+  // - For non-first pages, returning cached data can cause UI to "repeat" the first page
+  //   if old/bad cache entries exist. So we prefer fetching fresh for pageToken != undefined.
+  const isFirstPage = pageToken == null;
 
-  // If we have cached data, return it immediately
-  if (cached) {
+  // If cached first page is fresh, it is safe to use it directly.
+  if (isFirstPage && cached?.isFresh) {
     return {
       status: 'success',
       data: {
@@ -100,8 +92,34 @@ export const getMailboxEmailsInfiniteCached = async (
     };
   }
 
-  // No cache, wait for fresh data
-  return fetchPromise;
+  try {
+    const response = await baseApi.getMailboxEmailsInfinite(
+      mailboxId,
+      pageToken,
+      pageSize
+    );
+
+    await cacheEmailList(
+      mailboxId,
+      pageToken ?? null,
+      response.data.data,
+      response.data.meta
+    );
+
+    return response;
+  } catch (error) {
+    // Offline/temporary error fallback: serve cached data if available.
+    if (cached) {
+      return {
+        status: 'success',
+        data: {
+          data: cached.data,
+          meta: cached.meta,
+        },
+      };
+    }
+    throw error;
+  }
 };
 
 /**

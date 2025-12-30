@@ -45,15 +45,15 @@ export default function Home() {
   };
 
   return (
-    <div className='min-h-screen bg-linear-to-br from-purple-50 via-pink-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
+    <div className='min-h-screen min-h-screen-mobile bg-linear-to-br from-purple-50 via-pink-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 safe-area-inset-top safe-area-inset-bottom'>
       <nav className='bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800'>
-        <div className='container mx-auto px-4'>
-          <div className='flex justify-between items-center h-16'>
+        <div className='container mx-auto px-4 sm:px-6'>
+          <div className='flex justify-between items-center h-14 sm:h-16'>
             <div className='flex items-center gap-2'>
-              <HomeIcon className='h-6 w-6 text-primary' />
-              <h1 className='text-xl font-bold'>Inbox workspace</h1>
+              <HomeIcon className='h-5 w-5 sm:h-6 sm:w-6 text-primary' />
+              <h1 className='text-lg sm:text-xl font-bold'>Inbox workspace</h1>
             </div>
-            <div className='flex items-center gap-4'>
+            <div className='flex items-center gap-2 sm:gap-4'>
               {user ? (
                 <>
                   <Button

@@ -63,6 +63,10 @@ export function EmailListColumn({
   const scrollRef = useRef<HTMLDivElement>(null);
   const emailRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const lastAutoScrolledEmailIdRef = useRef<string | null>(null);
+  const lastAlignedActiveEmailIdRef = useRef<string | null>(null);
+  const wasNearBottomRef = useRef(false);
+  const lastLoadMoreAtRef = useRef<number>(0);
 
   /**
    * Keyboard navigation handlers
@@ -89,14 +93,26 @@ export function EmailListColumn({
    */
   useEffect(() => {
     const focusedEmail = emails[focusedIndex];
-    if (focusedEmail) {
-      const element = emailRefs.current.get(focusedEmail.id);
-      element?.scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth',
-      });
-    }
-  }, [focusedIndex, emails]);
+    if (!focusedEmail) return;
+
+    // IMPORTANT: avoid re-scrolling on every email page append.
+    // When `emails` changes (infinite load), re-running scrollIntoView can create
+    // a feedback loop: scroll -> load more -> emails change -> scrollIntoView -> scroll...
+    if (lastAutoScrolledEmailIdRef.current === focusedEmail.id) return;
+    lastAutoScrolledEmailIdRef.current = focusedEmail.id;
+
+    const element = emailRefs.current.get(focusedEmail.id);
+    element?.scrollIntoView({
+      block: 'nearest',
+      // Use non-animated scrolling to prevent continuous smooth scrolling
+      // during pagination updates.
+      behavior: 'auto',
+    });
+  }, [focusedIndex]);
+
+  // NOTE: we intentionally do NOT reset `wasNearBottomRef` when fetching completes.
+  // If the user remains at the bottom, resetting would allow another immediate
+  // load without the user scrolling again (feels like "auto loading forever").
 
   /**
    * Reset focus when emails change
@@ -111,7 +127,16 @@ export function EmailListColumn({
    * Keep focus aligned with the selected/active email
    */
   useEffect(() => {
-    if (!activeEmailId) return;
+    if (!activeEmailId) {
+      lastAlignedActiveEmailIdRef.current = null;
+      return;
+    }
+
+    // Avoid forcing focus (and triggering scrollIntoView) when emails append.
+    // We only align focus when the active selection actually changes.
+    if (lastAlignedActiveEmailIdRef.current === activeEmailId) return;
+    lastAlignedActiveEmailIdRef.current = activeEmailId;
+
     const idx = emails.findIndex((e) => e.id === activeEmailId);
     if (idx >= 0) setFocusedIndex(idx);
   }, [activeEmailId, emails]);
@@ -124,12 +149,30 @@ export function EmailListColumn({
     if (!scrollRef.current || !hasMore || isFetching) return;
 
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    const isNearBottom =
-      scrollHeight - scrollTop - clientHeight < SCROLL_LOAD_THRESHOLD;
 
-    if (isNearBottom) {
+    // If content doesn't overflow, we're always at "bottom", but we should still
+    // try to load more (until content fills the viewport).
+    const contentOverflows = scrollHeight > clientHeight + 4;
+
+    const isNearBottom = contentOverflows
+      ? scrollHeight - scrollTop - clientHeight < SCROLL_LOAD_THRESHOLD
+      : true; // If no overflow, consider us "near bottom" to trigger initial loads
+
+    // Only trigger when we CROSS into the near-bottom zone.
+    // This prevents repeated calls while the scroll position remains near bottom.
+    if (isNearBottom && !wasNearBottomRef.current) {
+      const now = Date.now();
+      // Throttle to prevent rapid-fire calls from layout/scroll events.
+      // This is the main protection against infinite loops.
+      if (now - lastLoadMoreAtRef.current < 800) return;
+
+      wasNearBottomRef.current = true;
+      lastLoadMoreAtRef.current = now;
       onLoadMore();
+      return;
     }
+
+    wasNearBottomRef.current = isNearBottom;
   }, [hasMore, isFetching, onLoadMore]);
 
   return (
@@ -191,7 +234,7 @@ export function EmailListColumn({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className='flex-1 overflow-y-auto min-h-0'
+        className='flex-1 overflow-y-auto min-h-0 scrollbar-thin touch-scroll smooth-scroll'
       >
         {isLoading ? (
           <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
@@ -284,19 +327,6 @@ export function EmailListColumn({
               <li className='flex items-center justify-center py-4 text-sm text-muted-foreground'>
                 <Loader2 className='h-4 w-4 animate-spin mr-2' />
                 Loading more emails...
-              </li>
-            )}
-
-            {/* Load more button (backup nếu auto-scroll không trigger) */}
-            {!isFetching && hasMore && (
-              <li className='flex items-center justify-center py-4'>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={onLoadMore}
-                >
-                  Load More
-                </Button>
               </li>
             )}
           </ul>

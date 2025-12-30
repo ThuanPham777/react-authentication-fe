@@ -77,26 +77,27 @@ export default function SignUp() {
   };
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 px-4'>
+    <div className='min-h-screen min-h-screen-mobile flex items-center justify-center bg-linear-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 px-4 sm:px-6 lg:px-8 py-8 safe-area-inset-top safe-area-inset-bottom'>
       <Card className='w-full max-w-md'>
-        <CardHeader className='space-y-1 text-center'>
+        <CardHeader className='space-y-1 text-center px-4 sm:px-6'>
           <div className='flex items-center justify-between mb-4'>
             <Link
               to='/'
-              className='text-muted-foreground hover:text-foreground transition-colors'
+              className='text-muted-foreground hover:text-foreground transition-colors tap-target'
+              aria-label='Go to home'
             >
               <HomeIcon className='h-5 w-5' />
             </Link>
-            <CardTitle className='text-3xl font-bold flex-1 text-center'>
+            <CardTitle className='text-2xl sm:text-3xl font-bold flex-1 text-center'>
               Create an Account
             </CardTitle>
             <div className='w-5' />
           </div>
-          <CardDescription>
+          <CardDescription className='text-sm sm:text-base'>
             Create your account with email + password
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className='px-4 sm:px-6'>
           <form
             onSubmit={handleSubmit(onSubmit)}
             className='space-y-4'

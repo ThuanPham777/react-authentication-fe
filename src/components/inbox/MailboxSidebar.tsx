@@ -54,7 +54,7 @@ export function MailboxSidebar({
         )}
       </div>
 
-      <div className='flex-1 overflow-y-auto min-h-0 scrollbar-thin'>
+      <div className='flex-1 overflow-y-auto min-h-0 scrollbar-thin touch-scroll smooth-scroll'>
         {isLoading ? (
           <div className='p-4 text-sm text-muted-foreground'>Loading…</div>
         ) : mailboxes.length ? (

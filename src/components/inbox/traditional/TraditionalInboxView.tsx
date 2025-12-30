@@ -76,7 +76,20 @@ export function TraditionalInboxView({
    * Flatten paginated data into single array
    */
   const allEmails = useMemo(() => {
-    return emailsQuery.data?.pages.flatMap((page) => page.data.data) ?? [];
+    const flat =
+      emailsQuery.data?.pages.flatMap((page) => page.data.data) ?? [];
+
+    // Defensive de-dupe: cached pagination or overlapping page tokens can cause
+    // repeated items, which leads to React "duplicate key" warnings and janky scroll.
+    const seen = new Set<string>();
+    const unique: typeof flat = [];
+    for (const email of flat) {
+      if (!email?.id) continue;
+      if (seen.has(email.id)) continue;
+      seen.add(email.id);
+      unique.push(email);
+    }
+    return unique;
   }, [emailsQuery.data]);
 
   /**
@@ -183,67 +196,94 @@ export function TraditionalInboxView({
   return (
     <div className='flex flex-col h-full'>
       {actionMessage && (
-        <Alert className='mb-4'>
-          <AlertDescription>{actionMessage}</AlertDescription>
+        <Alert className='mb-2 sm:mb-4'>
+          <AlertDescription className='text-sm'>
+            {actionMessage}
+          </AlertDescription>
         </Alert>
       )}
 
-      <div className='grid gap-4 lg:grid-cols-2 flex-1 min-h-0'>
-        <EmailListColumn
-          emails={filteredEmails}
-          isLoading={emailsQuery.isLoading}
-          isFetching={emailsQuery.isFetching || emailsQuery.isFetchingNextPage}
-          hasMore={emailsQuery.hasNextPage ?? false}
-          onLoadMore={() => emailsQuery.fetchNextPage()}
-          selectedEmails={selectedEmails}
-          onSelectEmail={setSelectedEmailId}
-          onToggleSelect={handleToggleSelect}
-          onSelectAll={handleSelectAll}
-          onMarkRead={() => handleBulkModify({ markRead: true }, 'Marked read')}
-          onMarkUnread={() =>
-            handleBulkModify({ markUnread: true }, 'Marked unread')
+      <div className='grid gap-2 sm:gap-4 md:grid-cols-1 lg:grid-cols-2 flex-1 min-h-0'>
+        {/* Email list - full width on mobile/tablet, half width on desktop */}
+        <div
+          className={
+            selectedEmailId
+              ? 'hidden lg:block h-full min-h-0'
+              : 'block h-full min-h-0'
           }
-          onDeleteSelected={() =>
-            handleBulkModify({ delete: true }, 'Moved to trash')
-          }
-          onStarToggle={(id, starred) =>
-            modifyMutation.mutate({
-              emailId: id,
-              actions: starred ? { unstar: true } : { star: true },
-            })
-          }
-          actionsDisabled={modifyMutation.isPending}
-          activeEmailId={selectedEmailId}
-          onCompose={() => openCompose()}
-        />
+        >
+          <EmailListColumn
+            emails={filteredEmails}
+            isLoading={emailsQuery.isLoading}
+            isFetching={
+              emailsQuery.isFetching || emailsQuery.isFetchingNextPage
+            }
+            hasMore={emailsQuery.hasNextPage ?? false}
+            onLoadMore={() => emailsQuery.fetchNextPage()}
+            selectedEmails={selectedEmails}
+            onSelectEmail={setSelectedEmailId}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAll}
+            onMarkRead={() =>
+              handleBulkModify({ markRead: true }, 'Marked read')
+            }
+            onMarkUnread={() =>
+              handleBulkModify({ markUnread: true }, 'Marked unread')
+            }
+            onDeleteSelected={() =>
+              handleBulkModify({ delete: true }, 'Moved to trash')
+            }
+            onStarToggle={(id, starred) =>
+              modifyMutation.mutate({
+                emailId: id,
+                actions: starred ? { unstar: true } : { star: true },
+              })
+            }
+            actionsDisabled={modifyMutation.isPending}
+            activeEmailId={selectedEmailId}
+            onCompose={() => openCompose()}
+          />
+        </div>
 
-        <EmailDetailColumn
-          email={emailDetailQuery.data?.data ?? null}
-          isLoading={emailDetailQuery.isLoading}
-          hasSelection={!!selectedEmailId}
-          onReply={
+        {/* Email detail - show when email selected, full width on mobile */}
+        <div
+          className={
             selectedEmailId
-              ? async (body, replyAll) => {
-                  await replyMutation.mutateAsync({
-                    emailId: selectedEmailId,
-                    body,
-                    replyAll,
-                  });
-                }
-              : undefined
+              ? 'block h-full min-h-0'
+              : 'hidden lg:block h-full min-h-0'
           }
-          onModify={
-            selectedEmailId
-              ? (actions) =>
-                  modifyMutation.mutate({ emailId: selectedEmailId, actions })
-              : undefined
-          }
-          onDownloadAttachment={
-            selectedEmailId ? handleDownloadAttachment : undefined
-          }
-          isLoadingAction={replyMutation.isPending || modifyMutation.isPending}
-          onForward={(email) => openForward(email)}
-        />
+        >
+          <EmailDetailColumn
+            email={emailDetailQuery.data?.data ?? null}
+            isLoading={emailDetailQuery.isLoading}
+            hasSelection={!!selectedEmailId}
+            onBack={() => setSelectedEmailId(null)}
+            onReply={
+              selectedEmailId
+                ? async (body, replyAll) => {
+                    await replyMutation.mutateAsync({
+                      emailId: selectedEmailId,
+                      body,
+                      replyAll,
+                    });
+                  }
+                : undefined
+            }
+            onModify={
+              selectedEmailId
+                ? (actions) =>
+                    modifyMutation.mutate({ emailId: selectedEmailId, actions })
+                : undefined
+            }
+            onDownloadAttachment={
+              selectedEmailId ? handleDownloadAttachment : undefined
+            }
+            isLoadingAction={
+              replyMutation.isPending || modifyMutation.isPending
+            }
+            onForward={(email) => openForward(email)}
+          />
+        </div>
       </div>
 
       {composeDraft && (

@@ -6,6 +6,7 @@ import { searchKanban, semanticSearchKanban } from '@/lib/api/kanban.api';
 import { getKanbanColumns } from '@/lib/api/kanban-config.api';
 import { SearchResults } from '../components/inbox/SearchResults';
 import { MailboxSidebar } from '../components/inbox/MailboxSidebar';
+import { MobileMenuDrawer } from '../components/inbox/MobileMenuDrawer';
 import { type InboxMode } from '../components/inbox/mode-toggle';
 import { TraditionalInboxView } from '../components/inbox/traditional/TraditionalInboxView';
 import { KanbanInboxView } from '../components/inbox/kanban/KanbanInboxView';
@@ -35,6 +36,9 @@ export default function InboxPage() {
   // View mode and mailbox selection
   const [mode, setMode] = useState<InboxMode>('traditional');
   const [selectedMailbox, setSelectedMailbox] = useState<string | null>(null);
+
+  // Mobile menu drawer state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Search state (for kanban mode)
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,7 +139,7 @@ export default function InboxPage() {
   });
 
   return (
-    <div className='h-screen flex flex-col bg-background text-foreground overflow-hidden'>
+    <div className='h-screen flex flex-col bg-background text-foreground overflow-hidden min-h-screen-mobile'>
       <InboxHeader
         mode={mode}
         onModeChange={setMode}
@@ -146,15 +150,16 @@ export default function InboxPage() {
         onSearchQueryChange={setSearchQuery}
         onSearch={doSearch}
         onShowKeyboardHelp={() => setShowKeyboardHelp(true)}
+        onMobileMenuToggle={() => setIsMobileMenuOpen(true)}
         userEmail={user?.email}
         userProvider={user?.provider}
         onLogout={logout}
       />
 
       <main className='flex-1 overflow-hidden min-h-0'>
-        <div className='h-full p-4 flex flex-col min-h-0'>
+        <div className='h-full p-2 sm:p-4 flex flex-col min-h-0'>
           {searchResults !== null || searchLoading ? (
-            <div className='rounded-xl border bg-card p-4 overflow-auto'>
+            <div className='rounded-xl border bg-card p-2 sm:p-4 overflow-auto smooth-scroll'>
               <SearchResults
                 items={searchResults || []}
                 loading={searchLoading}
@@ -173,19 +178,23 @@ export default function InboxPage() {
               />
             </div>
           ) : mode === 'traditional' ? (
-            <div className='grid gap-4 lg:grid-cols-[18%_82%] h-full min-h-0'>
-              <MailboxSidebar
-                mailboxes={mailboxesQuery.data?.data.mailboxes ?? []}
-                isLoading={mailboxesQuery.isLoading}
-                selectedId={selectedMailbox}
-                onSelect={setSelectedMailbox}
-                title='Mailboxes'
-                showCompose={false}
-              />
+            <div className='grid gap-2 sm:gap-4 lg:grid-cols-[18%_82%] h-full min-h-0'>
+              {/* Desktop sidebar - hidden on mobile/tablet */}
+              <div className='hidden lg:block h-full min-h-0'>
+                <MailboxSidebar
+                  mailboxes={mailboxesQuery.data?.data.mailboxes ?? []}
+                  isLoading={mailboxesQuery.isLoading}
+                  selectedId={selectedMailbox}
+                  onSelect={setSelectedMailbox}
+                  title='Mailboxes'
+                  showCompose={false}
+                />
+              </div>
 
-              <div className='rounded-xl border bg-card p-4 overflow-hidden'>
+              {/* Email view - full width on mobile, constrained on desktop */}
+              <div className='rounded-xl border bg-card p-2 sm:p-4 overflow-hidden h-full min-h-0'>
                 {!selectedMailbox ? (
-                  <div className='text-sm text-muted-foreground'>
+                  <div className='text-sm text-muted-foreground p-4'>
                     Select a mailbox…
                   </div>
                 ) : (
@@ -197,12 +206,21 @@ export default function InboxPage() {
               </div>
             </div>
           ) : (
-            <div className='rounded-xl border bg-card p-4 overflow-auto'>
+            <div className='rounded-xl border bg-card p-2 sm:p-4 overflow-auto smooth-scroll touch-scroll'>
               <KanbanInboxView labelId={selectedMailbox ?? 'INBOX'} />
             </div>
           )}
         </div>
       </main>
+
+      {/* Mobile drawer for mailbox navigation */}
+      <MobileMenuDrawer
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        mailboxes={mailboxesQuery.data?.data.mailboxes ?? []}
+        selectedId={selectedMailbox}
+        onSelect={setSelectedMailbox}
+      />
 
       {/* Keyboard shortcuts help modal */}
       <KeyboardShortcutsHelp

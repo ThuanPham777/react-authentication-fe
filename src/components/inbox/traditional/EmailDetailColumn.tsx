@@ -24,8 +24,10 @@ function sanitizeEmailHtml(html: string) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // Strip risky tags (keep <style> for email layout)
-    const forbidden = doc.querySelectorAll('script, meta, base, title');
+    // Strip risky/active tags (keep <style> for email layout)
+    const forbidden = doc.querySelectorAll(
+      'script, meta, base, title, iframe, object, embed'
+    );
     forbidden.forEach((n) => n.remove());
 
     // Remove inline event handlers (onload, onclick, ...)
@@ -326,7 +328,7 @@ export function EmailDetailColumn({
           </Button>
         </div>
       </div>
-      <div className='flex-1 overflow-y-auto min-h-0 p-4'>
+      <div className='flex-1 overflow-y-auto min-h-0 p-4 scrollbar-thin touch-scroll smooth-scroll'>
         {isLoading ? (
           <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
             Loading email…
