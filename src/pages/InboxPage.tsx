@@ -2,16 +2,14 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getMailboxes } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { searchKanban, semanticSearchKanban } from '@/lib/api/kanban.api';
 import { getKanbanColumns } from '@/lib/api/kanban-config.api';
 import { SearchResults } from '../components/inbox/SearchResults';
-import { SearchBarWithSuggestions } from '../components/inbox/SearchBarWithSuggestions';
 import { MailboxSidebar } from '../components/inbox/MailboxSidebar';
-import { ModeToggle, type InboxMode } from '../components/inbox/mode-toggle';
+import { type InboxMode } from '../components/inbox/mode-toggle';
 import { TraditionalInboxView } from '../components/inbox/traditional/TraditionalInboxView';
 import { KanbanInboxView } from '../components/inbox/kanban/KanbanInboxView';
+import { InboxHeader } from '../components/inbox/kanban/InboxHeader';
 import { getGmailUrl } from '@/utils/emailUtils';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import { KeyboardShortcutsHelp } from '@/components/inbox/KeyboardShortcutsHelp';
@@ -138,65 +136,20 @@ export default function InboxPage() {
 
   return (
     <div className='h-screen flex flex-col bg-background text-foreground overflow-hidden'>
-      <header className='border-b bg-card shrink-0'>
-        <div className='flex items-center justify-between gap-4 px-4 py-4'>
-          <div>
-            <p className='text-xs uppercase tracking-[0.3em] text-muted-foreground'>
-              Mailbox
-            </p>
-            <h1 className='text-2xl font-semibold'>Inbox workspace</h1>
-          </div>
-
-          <div className='flex-1 px-4'>
-            {mode === 'traditional' ? (
-              <Input
-                ref={searchInputRef}
-                type='search'
-                placeholder='Search emails... (Press / to focus)'
-                className='w-full'
-                value={emailSearchTerm}
-                onChange={(e) => setEmailSearchTerm(e.target.value)}
-              />
-            ) : (
-              <SearchBarWithSuggestions
-                inputRef={searchInputRef}
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={doSearch}
-                placeholder='Search emails... (Press / to focus, Ctrl+Enter for AI search)'
-              />
-            )}
-          </div>
-
-          <div className='flex items-center gap-3'>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => setShowKeyboardHelp(true)}
-              title='Keyboard shortcuts (Press ?)'
-            >
-              <span className='text-lg'>?</span>
-            </Button>
-            <ModeToggle
-              mode={mode}
-              onChange={setMode}
-            />
-            <div className='text-right'>
-              <p className='text-sm font-medium'>{user?.email}</p>
-              <p className='text-xs text-muted-foreground'>
-                {user?.provider ?? 'password'} session
-              </p>
-            </div>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => logout()}
-            >
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+      <InboxHeader
+        mode={mode}
+        onModeChange={setMode}
+        searchInputRef={searchInputRef}
+        emailSearchTerm={emailSearchTerm}
+        onEmailSearchTermChange={setEmailSearchTerm}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onSearch={doSearch}
+        onShowKeyboardHelp={() => setShowKeyboardHelp(true)}
+        userEmail={user?.email}
+        userProvider={user?.provider}
+        onLogout={logout}
+      />
 
       <main className='flex-1 overflow-hidden min-h-0'>
         <div className='h-full p-4 flex flex-col min-h-0'>
