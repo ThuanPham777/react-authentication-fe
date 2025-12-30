@@ -7,7 +7,7 @@ Modern React single-page application featuring intelligent email management with
 ### Authentication & Security
 
 - Email/password registration with strong validation (React Hook Form + Zod)
-- Google Identity Services One Tap integration
+- Google login via OAuth 2.0 code flow (primary) + optional GIS One Tap credential flow (depends on backend)
 - Secure token management: access token in memory, refresh token in localStorage
 - Concurrent-safe automatic token refresh with Axios interceptors
 - Auth-aware routing with protected routes
@@ -15,6 +15,7 @@ Modern React single-page application featuring intelligent email management with
 ### Email Management
 
 - Gmail integration with real-time inbox sync
+- Offline caching with IndexedDB (stale-while-revalidate) for faster loads and basic offline access
 - Full email operations (compose, reply, forward, delete)
 - Rich text editor for composing emails
 - Attachment preview and download
@@ -40,10 +41,17 @@ Modern React single-page application featuring intelligent email management with
 ### User Experience
 
 - Responsive design (desktop, tablet, mobile)
+- Independent per-column scrolling (mailboxes, list, detail)
+- Mobile mailbox drawer navigation
 - Keyboard navigation and shortcuts
 - Dark/light mode support
 - Toast notifications for all actions
 - Loading states and error handling
+
+### Reliability & Rendering
+
+- Infinite scroll with guarded auto-loading (prevents runaway fetch loops)
+- Email HTML is sanitized and rendered inside a sandboxed iframe (scripts are blocked by design)
 
 ## Tech Stack
 
@@ -114,14 +122,16 @@ The frontend will start on `http://localhost:5173`
 
 - `POST /api/auth/register` - Email/password signup
 - `POST /api/auth/login` - Issue access + refresh token
-- `POST /api/auth/google` - Exchange Google credential for tokens
+- `POST /api/auth/google/full-login` - Google OAuth code flow (used for Gmail scopes + offline access)
 - `POST /api/auth/refresh` - Rotate refresh token
 - `POST /api/auth/logout` - Revoke stored refresh token
+
+> Note: Some older setups may also expose `POST /api/auth/google` (One Tap credential exchange). The current backend implementation documents `google/full-login`.
 
 ### Mailbox & Email
 
 - `GET /api/mailboxes` - List folders + unread counts
-- `GET /api/mailboxes/:id/emails` - Paginated list for a folder
+- `GET /api/mailboxes/:id/emails` - Paginated list for a folder (supports `pageToken` + `limit`, with `page` fallback)
 - `GET /api/emails/:id` - Email detail, metadata, attachments
 - `POST /api/emails/send` - Send email
 - `POST /api/emails/:id/reply` - Reply to an email
