@@ -13,8 +13,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import {
-  getMailboxEmailsInfinite,
-  getEmailDetail,
+  gmailCached,
   getAttachment,
   type EmailDetailResponse,
   type SendEmailData,
@@ -23,6 +22,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { EmailListColumn } from './EmailListColumn';
 import { EmailDetailColumn } from './EmailDetailColumn';
 import { ComposeModal } from './ComposeModal';
+import { CacheStatusIndicator } from '../CacheStatusIndicator';
 import { useEmailMutations } from '../../../hooks/email/useEmailMutations';
 import { useEmailSelection } from '../../../hooks/email/useEmailSelection';
 import {
@@ -54,13 +54,18 @@ export function TraditionalInboxView({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   /**
-   * Fetch emails with infinite scroll pagination
+   * Fetch emails with infinite scroll pagination + offline caching
    * Uses pageToken from Gmail API for cursor-based pagination
+   * Implements stale-while-revalidate: shows cached data instantly, then updates
    */
   const emailsQuery = useInfiniteQuery({
     queryKey: ['emails-infinite', mailboxId],
     queryFn: ({ pageParam }) =>
-      getMailboxEmailsInfinite(mailboxId, pageParam, EMAILS_PER_PAGE),
+      gmailCached.getMailboxEmailsInfinite(
+        mailboxId,
+        pageParam,
+        EMAILS_PER_PAGE
+      ),
     enabled: !!mailboxId,
     getNextPageParam: (lastPage) =>
       lastPage.data.meta.nextPageToken ?? undefined,
@@ -87,11 +92,12 @@ export function TraditionalInboxView({
   } = useEmailSelection({ emails: allEmails, mailboxId });
 
   /**
-   * Fetch detail of currently selected email
+   * Fetch detail of currently selected email with offline caching
+   * Stale-while-revalidate: cached email shows instantly, fresh data updates in background
    */
   const emailDetailQuery = useQuery<EmailDetailResponse>({
     queryKey: ['email', selectedEmailId ?? 'none'],
-    queryFn: () => getEmailDetail(selectedEmailId!),
+    queryFn: () => gmailCached.getEmailDetail(selectedEmailId!),
     enabled: Boolean(selectedEmailId),
   });
 
@@ -260,6 +266,12 @@ export function TraditionalInboxView({
           isLoading={sendMutation.isPending || forwardMutation.isPending}
         />
       )}
+
+      {/* Cache status indicator - shows when syncing fresh data */}
+      <CacheStatusIndicator
+        isFetching={emailsQuery.isFetching || emailDetailQuery.isFetching}
+        label='Syncing emails...'
+      />
     </div>
   );
 }

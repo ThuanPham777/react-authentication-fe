@@ -4,7 +4,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { sendEmail, replyEmail, modifyEmail, forwardEmail } from '@/lib/api';
+import { gmailCached } from '@/lib/api';
 import type { ModifyEmailData, SendEmailData } from '@/lib/api';
 
 interface UseEmailMutationsProps {
@@ -22,10 +22,10 @@ export function useEmailMutations({
 
   /**
    * Mutation for sending new emails
-   * Invalidates email list after successful send
+   * Invalidates email list and cache after successful send
    */
   const sendMutation = useMutation({
-    mutationFn: sendEmail,
+    mutationFn: gmailCached.sendEmail,
     onSuccess: () => {
       onSuccess?.('Email sent successfully');
       qc.invalidateQueries({ queryKey: ['emails-infinite', mailboxId] });
@@ -39,7 +39,7 @@ export function useEmailMutations({
 
   /**
    * Mutation for forwarding emails
-   * Invalidates email list after successful forward
+   * Invalidates email list and cache after successful forward
    */
   const forwardMutation = useMutation({
     mutationFn: ({
@@ -48,7 +48,7 @@ export function useEmailMutations({
     }: {
       emailId: string;
       payload: SendEmailData;
-    }) => forwardEmail(emailId, payload),
+    }) => gmailCached.forwardEmail(emailId, payload),
     onSuccess: () => {
       onSuccess?.('Email forwarded successfully');
       qc.invalidateQueries({ queryKey: ['emails-infinite', mailboxId] });
@@ -62,7 +62,7 @@ export function useEmailMutations({
 
   /**
    * Mutation for replying to emails
-   * Invalidates both email list and specific email detail
+   * Invalidates both email list and specific email detail + cache
    */
   const replyMutation = useMutation({
     mutationFn: ({
@@ -73,7 +73,7 @@ export function useEmailMutations({
       emailId: string;
       body: string;
       replyAll?: boolean;
-    }) => replyEmail(emailId, { body, replyAll }),
+    }) => gmailCached.replyEmail(emailId, { body, replyAll }),
     onSuccess: (_data, vars) => {
       onSuccess?.('Reply sent successfully');
       qc.invalidateQueries({ queryKey: ['emails-infinite', mailboxId] });
@@ -90,6 +90,7 @@ export function useEmailMutations({
    * Mutation for modifying emails (read/unread, star/unstar, delete)
    * Uses optimistic updates for immediate UI feedback
    * Rolls back on error, refetches on success to ensure consistency
+   * Cache is automatically invalidated by gmailCached.modifyEmail
    */
   const modifyMutation = useMutation({
     mutationFn: ({
@@ -98,7 +99,7 @@ export function useEmailMutations({
     }: {
       emailId: string;
       actions: ModifyEmailData;
-    }) => modifyEmail(emailId, actions),
+    }) => gmailCached.modifyEmail(emailId, actions),
 
     // Optimistic update: Update UI immediately before API responds
     onMutate: async ({ emailId, actions }) => {

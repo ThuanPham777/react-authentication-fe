@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getMailboxes } from '@/lib/api';
+import { gmailCached } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { searchKanban, semanticSearchKanban } from '@/lib/api/kanban.api';
 import { getKanbanColumns } from '@/lib/api/kanban-config.api';
@@ -76,10 +76,10 @@ export default function InboxPage() {
     }
   };
 
-  // Fetch mailboxes (labels) from Gmail API
+  // Fetch mailboxes (labels) from Gmail API with offline caching
   const mailboxesQuery = useQuery({
     queryKey: ['mailboxes'],
-    queryFn: getMailboxes,
+    queryFn: gmailCached.getMailboxes,
   });
 
   const kanbanColumnsQuery = useQuery({

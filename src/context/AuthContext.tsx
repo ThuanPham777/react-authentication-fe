@@ -30,6 +30,7 @@ import {
 import type { StoredUser } from '@/lib/auth';
 import { logoutUser, rotateTokens } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
+import { clearAllEmailCache } from '@/lib/db/emailCache';
 
 /**
  * Authentication context value shape
@@ -157,6 +158,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    * - Calls logout API endpoint
    * - Clears all auth data (tokens, user)
    * - Clears React Query cache
+   * - Clears IndexedDB email cache
    * - Handles API errors gracefully (always logs out locally)
    */
   const logout = useCallback(async () => {
@@ -171,6 +173,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserState(null);
       setStoredUser(null);
       queryClient.clear();
+      // Clear offline email cache on logout
+      await clearAllEmailCache().catch(() => {
+        // Ignore cache clear errors (e.g., if IndexedDB is unavailable)
+      });
     }
   }, [queryClient, user]);
 
