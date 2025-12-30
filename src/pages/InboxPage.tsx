@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getMailboxes } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -13,6 +13,8 @@ import { ModeToggle, type InboxMode } from '../components/inbox/mode-toggle';
 import { TraditionalInboxView } from '../components/inbox/traditional/TraditionalInboxView';
 import { KanbanInboxView } from '../components/inbox/kanban/KanbanInboxView';
 import { getGmailUrl } from '@/utils/emailUtils';
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
+import { KeyboardShortcutsHelp } from '@/components/inbox/KeyboardShortcutsHelp';
 
 /**
  * InboxPage - Main inbox container with dual view modes
@@ -45,6 +47,10 @@ export default function InboxPage() {
 
   // Email filtering (for traditional mode)
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
+
+  // Keyboard shortcuts state
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * Executes kanban search (fuzzy or semantic)
@@ -107,6 +113,29 @@ export default function InboxPage() {
     }
   }, [mode]);
 
+  /**
+   * Global keyboard shortcuts
+   */
+  useKeyboardNavigation({
+    handlers: {
+      FOCUS_SEARCH: () => {
+        searchInputRef.current?.focus();
+      },
+      SHOW_HELP: () => {
+        setShowKeyboardHelp(true);
+      },
+      CLOSE_MODAL: () => {
+        if (showKeyboardHelp) {
+          setShowKeyboardHelp(false);
+        } else if (searchResults !== null) {
+          setSearchResults(null);
+          setSearchError(null);
+          setSearchQuery('');
+        }
+      },
+    },
+  });
+
   return (
     <div className='h-screen flex flex-col bg-background text-foreground overflow-hidden'>
       <header className='border-b bg-card shrink-0'>
@@ -121,23 +150,33 @@ export default function InboxPage() {
           <div className='flex-1 px-4'>
             {mode === 'traditional' ? (
               <Input
+                ref={searchInputRef}
                 type='search'
-                placeholder='Search emails...'
+                placeholder='Search emails... (Press / to focus)'
                 className='w-full'
                 value={emailSearchTerm}
                 onChange={(e) => setEmailSearchTerm(e.target.value)}
               />
             ) : (
               <SearchBarWithSuggestions
+                inputRef={searchInputRef}
                 value={searchQuery}
                 onChange={setSearchQuery}
                 onSearch={doSearch}
-                placeholder='Search emails... (Ctrl+Enter for AI search)'
+                placeholder='Search emails... (Press / to focus, Ctrl+Enter for AI search)'
               />
             )}
           </div>
 
           <div className='flex items-center gap-3'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => setShowKeyboardHelp(true)}
+              title='Keyboard shortcuts (Press ?)'
+            >
+              <span className='text-lg'>?</span>
+            </Button>
             <ModeToggle
               mode={mode}
               onChange={setMode}
@@ -211,6 +250,12 @@ export default function InboxPage() {
           )}
         </div>
       </main>
+
+      {/* Keyboard shortcuts help modal */}
+      <KeyboardShortcutsHelp
+        open={showKeyboardHelp}
+        onOpenChange={setShowKeyboardHelp}
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ interface SearchBarWithSuggestionsProps {
   onChange: (value: string) => void;
   onSearch: (query: string, isSemanticSearch?: boolean) => void;
   placeholder?: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function SearchBarWithSuggestions({
@@ -26,11 +27,13 @@ export function SearchBarWithSuggestions({
   onChange,
   onSearch,
   placeholder = 'Search emails...',
+  inputRef: externalInputRef,
 }: SearchBarWithSuggestionsProps) {
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const localInputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = externalInputRef ?? localInputRef;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -8,8 +8,9 @@
  * - Search highlighting
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import type { EmailListItem } from '@/lib/api';
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import { Button } from '@/components/ui/button';
 import {
   CheckSquare,
@@ -60,6 +61,60 @@ export function EmailListColumn({
   onCompose?: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emailRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+  const [focusedIndex, setFocusedIndex] = useState(0);
+
+  /**
+   * Keyboard navigation handlers
+   */
+  useKeyboardNavigation({
+    enabled: !isLoading && emails.length > 0,
+    handlers: {
+      NEXT_EMAIL: () => {
+        setFocusedIndex((prev) => Math.min(prev + 1, emails.length - 1));
+      },
+      PREV_EMAIL: () => {
+        setFocusedIndex((prev) => Math.max(prev - 1, 0));
+      },
+      OPEN_EMAIL: () => {
+        if (emails[focusedIndex]) {
+          onSelectEmail(emails[focusedIndex].id);
+        }
+      },
+    },
+  });
+
+  /**
+   * Auto-scroll focused email into view
+   */
+  useEffect(() => {
+    const focusedEmail = emails[focusedIndex];
+    if (focusedEmail) {
+      const element = emailRefs.current.get(focusedEmail.id);
+      element?.scrollIntoView({
+        block: 'nearest',
+        behavior: 'smooth',
+      });
+    }
+  }, [focusedIndex, emails]);
+
+  /**
+   * Reset focus when emails change
+   */
+  useEffect(() => {
+    if (focusedIndex >= emails.length) {
+      setFocusedIndex(Math.max(0, emails.length - 1));
+    }
+  }, [emails.length, focusedIndex]);
+
+  /**
+   * Keep focus aligned with the selected/active email
+   */
+  useEffect(() => {
+    if (!activeEmailId) return;
+    const idx = emails.findIndex((e) => e.id === activeEmailId);
+    if (idx >= 0) setFocusedIndex(idx);
+  }, [activeEmailId, emails]);
 
   /**
    * Detect when user scrolls near bottom to trigger auto-load
@@ -144,70 +199,85 @@ export function EmailListColumn({
           </div>
         ) : emails.length ? (
           <ul>
-            {emails.map((email) => (
-              <li
-                key={email.id}
-                tabIndex={0}
-                className={`border-b px-4 py-3 outline-none transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring ${
-                  email.id === activeEmailId ? 'bg-primary/5' : ''
-                }`}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
+            {emails.map((email, index) => {
+              const isFocused = index === focusedIndex;
+              const isActive = email.id === activeEmailId;
+              return (
+                <li
+                  key={email.id}
+                  ref={(el) => {
+                    if (el) {
+                      emailRefs.current.set(email.id, el);
+                    } else {
+                      emailRefs.current.delete(email.id);
+                    }
+                  }}
+                  tabIndex={0}
+                  className={`relative border-b px-4 py-3 outline-none transition hover:bg-muted/50 ${
+                    isFocused
+                      ? 'ring-2 ring-primary ring-inset bg-primary/10'
+                      : ''
+                  } ${isActive ? 'bg-primary/5' : ''}`}
+                  onClick={() => {
+                    setFocusedIndex(index);
                     onSelectEmail(email.id);
-                  }
-                }}
-              >
-                <div className='flex items-start gap-3'>
-                  <input
-                    type='checkbox'
-                    className='mt-1 accent-primary'
-                    checked={selectedEmails.includes(email.id)}
-                    onChange={() => onToggleSelect(email.id)}
-                    aria-label={`Select email from ${email.senderName}`}
-                  />
-                  <div
-                    className={`flex-1 cursor-pointer rounded-lg px-2 py-1 ${
-                      email.id === activeEmailId ? 'bg-primary/10' : ''
-                    } ${compact ? 'text-sm' : ''}`}
-                    onClick={() => onSelectEmail(email.id)}
-                  >
-                    <div className='flex items-center justify-between'>
-                      <p className='font-semibold'>
-                        {email.senderName}{' '}
-                        {email.unread && (
-                          <span className='text-xs'>• Unread</span>
-                        )}
+                  }}
+                  onMouseEnter={() => setFocusedIndex(index)}
+                >
+                  {isFocused && (
+                    <div className='absolute left-0 top-0 bottom-0 w-1 bg-primary' />
+                  )}
+                  <div className='flex items-start gap-3'>
+                    <input
+                      type='checkbox'
+                      className='mt-1 accent-primary'
+                      checked={selectedEmails.includes(email.id)}
+                      onChange={() => onToggleSelect(email.id)}
+                      aria-label={`Select email from ${email.senderName}`}
+                    />
+                    <div
+                      className={`flex-1 cursor-pointer rounded-lg px-2 py-1 ${
+                        email.id === activeEmailId ? 'bg-primary/10' : ''
+                      } ${compact ? 'text-sm' : ''}`}
+                      onClick={() => onSelectEmail(email.id)}
+                    >
+                      <div className='flex items-center justify-between'>
+                        <p className='font-semibold'>
+                          {email.senderName}{' '}
+                          {email.unread && (
+                            <span className='text-xs'>• Unread</span>
+                          )}
+                        </p>
+                        <span className='text-xs text-muted-foreground'>
+                          {new Date(email.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <p className='text-sm font-medium line-clamp-1'>
+                        {email.subject}
                       </p>
-                      <span className='text-xs text-muted-foreground'>
-                        {new Date(email.timestamp).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                      <p className='text-sm text-muted-foreground line-clamp-1'>
+                        {email.preview}
+                      </p>
                     </div>
-                    <p className='text-sm font-medium line-clamp-1'>
-                      {email.subject}
-                    </p>
-                    <p className='text-sm text-muted-foreground line-clamp-1'>
-                      {email.preview}
-                    </p>
+                    <button
+                      type='button'
+                      className='text-muted-foreground hover:text-yellow-500 disabled:opacity-50'
+                      onClick={() => onStarToggle(email.id, email.starred)}
+                      disabled={actionsDisabled}
+                    >
+                      {email.starred ? (
+                        <Star className='h-4 w-4 fill-current' />
+                      ) : (
+                        <StarOff className='h-4 w-4' />
+                      )}
+                    </button>
                   </div>
-                  <button
-                    type='button'
-                    className='text-muted-foreground hover:text-yellow-500 disabled:opacity-50'
-                    onClick={() => onStarToggle(email.id, email.starred)}
-                    disabled={actionsDisabled}
-                  >
-                    {email.starred ? (
-                      <Star className='h-4 w-4 fill-current' />
-                    ) : (
-                      <StarOff className='h-4 w-4' />
-                    )}
-                  </button>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
 
             {/* Loading more indicator */}
             {isFetching && (
