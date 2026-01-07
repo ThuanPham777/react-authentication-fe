@@ -4,13 +4,17 @@ Modern React single-page application featuring intelligent email management with
 
 ## Highlights
 
-### Authentication & Security
+### Authentication & Security (Google OAuth 2.0 Only)
 
-- Email/password registration with strong validation (React Hook Form + Zod)
-- Google login via OAuth 2.0 code flow (primary) + optional GIS One Tap credential flow (depends on backend)
-- Secure token management: access token in memory, refresh token in localStorage
-- Concurrent-safe automatic token refresh with Axios interceptors
-- Auth-aware routing with protected routes
+- **Google OAuth 2.0 code flow** - Single sign-in method for both login and registration
+- **Gmail API scopes** - Automatic permission request for email read/modify/send
+- **Offline refresh token** - Secure server-side storage for Gmail API access
+- **JWT access/refresh token rotation** - Secure session management with token rotation
+- **Hashed refresh tokens** - Server-side refresh tokens stored with bcrypt hashing
+- **Automatic token refresh** - Transparent token renewal when access token expires
+- **Concurrency handling** - Single refresh request when multiple 401s occur
+- **Cross-tab sync** - BroadcastChannel for instant auth state synchronization
+- **Secure logout** - Complete cleanup of all tokens (server + client side)
 
 ### Email Management
 
