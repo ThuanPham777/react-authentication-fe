@@ -53,12 +53,11 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as any;
     const url: string = originalRequest?.url ?? '';
 
+    // Don't attempt to refresh for auth endpoints to avoid infinite loops
     const isAuthEndpoint =
       url.includes('/api/auth/refresh') ||
-      url.includes('/api/auth/login') ||
       url.includes('/api/auth/logout') ||
-      url.includes('/api/auth/register') ||
-      url.includes('/api/auth/google'); // gồm cả /full-login
+      url.includes('/api/auth/google'); // includes /google/login
 
     if (
       error.response?.status === 401 &&

@@ -1,79 +1,47 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { registerUser } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { setAccessToken, persistRefreshInfo } from '@/lib/auth';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  Loader2,
-  Mail,
-  Lock,
   AlertCircle,
   CheckCircle,
   Home as HomeIcon,
+  Mail,
+  ShieldCheck,
 } from 'lucide-react';
-
-const passwordSchema = z
-  .string()
-  .min(8, 'Password must be at least 8 characters')
-  .regex(/[A-Z]/, 'Include at least one uppercase letter')
-  .regex(/[0-9]/, 'Include at least one number');
-
-const signupSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: passwordSchema,
-});
-
-type SignUpFormData = z.infer<typeof signupSchema>;
+import { useAuth } from '@/context/AuthContext';
+import { GoogleSigninButton } from '@/components/auth/GoogleSignInButton';
+import type { LoginResponse } from '@/lib/api';
 
 export default function SignUp() {
   const navigate = useNavigate();
+  const { setUser } = useAuth();
   const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<SignUpFormData>({
-    resolver: zodResolver(signupSchema),
-  });
-
-  const mutation = useMutation({
-    mutationFn: registerUser,
-    onSuccess: () => {
-      setSuccess('Registration successful! Redirecting to login…');
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
-    },
-    onError: (err: any) => {
-      const errorMessage =
-        err.response?.data?.message || 'Registration failed. Please try again.';
-      setError(errorMessage);
-    },
-  });
-
-  const onSubmit = (data: SignUpFormData) => {
+  /**
+   * Handle successful Google OAuth registration/login
+   * Google OAuth handles both - new users are registered, existing users are logged in
+   */
+  const handleGoogleSuccess = (response: LoginResponse) => {
     setError('');
-    setSuccess('');
-    mutation.mutate({
-      email: data.email,
-      password: data.password,
-    });
+    setAccessToken(response.data.accessToken);
+    persistRefreshInfo(response.data.user, response.data.refreshToken);
+    setUser(response.data.user);
+    navigate('/inbox', { replace: true });
+  };
+
+  /**
+   * Handle Google OAuth errors
+   */
+  const handleGoogleError = (errorMsg: string) => {
+    setError(errorMsg);
   };
 
   return (
@@ -89,95 +57,55 @@ export default function SignUp() {
               <HomeIcon className='h-5 w-5' />
             </Link>
             <CardTitle className='text-2xl sm:text-3xl font-bold flex-1 text-center'>
-              Create an Account
+              Get Started
             </CardTitle>
             <div className='w-5' />
           </div>
           <CardDescription className='text-sm sm:text-base'>
-            Create your account with email + password
+            Create your account with Google to start managing your inbox
           </CardDescription>
         </CardHeader>
-        <CardContent className='px-4 sm:px-6'>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className='space-y-4'
-          >
-            {error && (
-              <Alert variant='destructive'>
-                <AlertCircle className='h-4 w-4' />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
 
-            {success && (
-              <Alert variant='success'>
-                <CheckCircle className='h-4 w-4' />
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
+        <CardContent className='space-y-6 px-4 sm:px-6'>
+          {error && (
+            <Alert variant='destructive'>
+              <AlertCircle className='h-4 w-4' />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            <div className='space-y-2'>
-              <Label htmlFor='email'>Email</Label>
-              <div className='relative'>
-                <Mail className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground' />
-                <Input
-                  id='email'
-                  type='email'
-                  autoComplete='email'
-                  placeholder='name@example.com'
-                  className='pl-10'
-                  {...register('email')}
-                />
-              </div>
-              {errors.email && (
-                <p className='text-sm text-destructive'>
-                  {errors.email.message}
-                </p>
-              )}
+          <div className='space-y-4'>
+            <div className='flex items-center gap-3 rounded-md bg-green-50 dark:bg-green-900/20 p-3 text-left text-sm text-green-700 dark:text-green-300'>
+              <CheckCircle className='h-5 w-5 shrink-0' />
+              <p>
+                Sign up instantly with your Google account. We'll request Gmail
+                access to help you manage your emails.
+              </p>
             </div>
 
-            <div className='space-y-2'>
-              <Label htmlFor='password'>Password</Label>
-              <div className='relative'>
-                <Lock className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground' />
-                <Input
-                  id='password'
-                  type='password'
-                  autoComplete='new-password'
-                  placeholder='Create a secure password'
-                  className='pl-10'
-                  {...register('password')}
-                />
-              </div>
-              {errors.password ? (
-                <p className='text-sm text-destructive'>
-                  {errors.password.message}
-                </p>
-              ) : (
-                <p className='text-xs text-muted-foreground'>
-                  Use at least 8 characters, including a capital letter and a
-                  number.
-                </p>
-              )}
+            <div className='flex items-center gap-3 rounded-md bg-blue-50 dark:bg-blue-900/20 p-3 text-left text-sm text-blue-700 dark:text-blue-300'>
+              <Mail className='h-5 w-5 shrink-0' />
+              <p>
+                Your Gmail data stays secure. We only access what's needed for
+                email management features.
+              </p>
             </div>
 
-            <Button
-              type='submit'
-              className='w-full'
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Creating account…
-                </>
-              ) : (
-                'Create account'
-              )}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className='flex flex-col space-y-4'>
+            <GoogleSigninButton
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              buttonText='Sign up with Google'
+            />
+          </div>
+
+          <div className='flex items-center gap-3 rounded-md bg-muted/40 p-3 text-left text-sm text-muted-foreground'>
+            <ShieldCheck className='h-4 w-4 text-primary shrink-0' />
+            <p>
+              Your security is our priority. All tokens are stored securely and
+              sessions are protected.
+            </p>
+          </div>
+
           <div className='text-sm text-center text-muted-foreground'>
             Already have an account?{' '}
             <Link
@@ -187,7 +115,7 @@ export default function SignUp() {
               Sign in
             </Link>
           </div>
-        </CardFooter>
+        </CardContent>
       </Card>
     </div>
   );

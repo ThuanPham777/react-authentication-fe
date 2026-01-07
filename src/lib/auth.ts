@@ -10,7 +10,8 @@ export type StoredUser = {
   email: string;
   name?: string;
   avatarUrl?: string;
-  provider?: 'password' | 'google';
+  provider: 'google';
+  googleId?: string;
 };
 
 export type AuthBroadcastMessage =

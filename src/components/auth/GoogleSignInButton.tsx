@@ -8,11 +8,13 @@
  * - Gmail API scopes (read, modify, send)
  * - Popup-based authentication
  * - Branded Google button design
+ * - Handles both login and registration via single endpoint
  */
 
-import { useEffect, useRef, useCallback } from 'react';
-import { loginFullWithGoogle } from '@/lib/api';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { loginWithGoogle, type LoginResponse } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 /** ID for Google Identity Services script tag */
 const SCRIPT_ID = 'google-identity-services';
@@ -29,9 +31,13 @@ const GMAIL_SCOPE = [
 
 interface Props {
   /** Callback when authentication succeeds */
-  onSuccess: (data: any) => void;
+  onSuccess: (data: LoginResponse) => void;
+  /** Callback when authentication fails */
+  onError?: (error: string) => void;
   /** Disables the button */
   disabled?: boolean;
+  /** Button text override */
+  buttonText?: string;
 }
 
 /**
@@ -102,10 +108,18 @@ function GoogleLogo() {
 /**
  * Google Sign-In button component
  * Initializes OAuth2 client and handles authentication flow
+ * Handles both login and registration via single Google OAuth endpoint
  */
-export function GoogleSigninButton({ onSuccess, disabled }: Props) {
+export function GoogleSigninButton({
+  onSuccess,
+  onError,
+  disabled,
+  buttonText = 'Sign in with Google',
+}: Props) {
   // Reference to OAuth2 code client instance
   const codeClientRef = useRef<google.accounts.oauth2.CodeClient | null>(null);
+  // Loading state during authentication
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Initializes Google OAuth2 code client
@@ -131,19 +145,29 @@ export function GoogleSigninButton({ onSuccess, disabled }: Props) {
       access_type: 'offline',
       prompt: 'consent',
       callback: async (resp) => {
+        if (!resp.code) {
+          const errorMsg = resp.error || 'No authorization code returned';
+          console.error('Google auth error:', errorMsg);
+          onError?.(errorMsg);
+          setIsLoading(false);
+          return;
+        }
+
         try {
-          if (!resp.code) {
-            console.error('No authorization code returned', resp.error);
-            return;
-          }
-          const res = await loginFullWithGoogle(resp.code);
+          setIsLoading(true);
+          const res = await loginWithGoogle(resp.code);
           onSuccess(res);
-        } catch (e) {
-          console.error(e);
+        } catch (e: any) {
+          const errorMsg =
+            e?.response?.data?.message || e?.message || 'Authentication failed';
+          console.error('Login error:', e);
+          onError?.(errorMsg);
+        } finally {
+          setIsLoading(false);
         }
       },
     });
-  }, [onSuccess]);
+  }, [onSuccess, onError]);
 
   /**
    * Load GSI script and initialize client on mount
@@ -176,17 +200,25 @@ export function GoogleSigninButton({ onSuccess, disabled }: Props) {
     codeClientRef.current.requestCode();
   };
 
+  const isDisabled = disabled || isLoading;
+
   return (
     <Button
       type='button'
       onClick={handleClick}
-      disabled={disabled}
-      className='w-full justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f7f8f8] active:bg-[#f1f3f4]'
+      disabled={isDisabled}
+      className='w-full justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f7f8f8] active:bg-[#f1f3f4] disabled:opacity-50'
       variant='outline'
-      aria-label='Sign in with Google'
+      aria-label={buttonText}
     >
-      <GoogleLogo />
-      <span className='whitespace-nowrap'>Sign in with Google</span>
+      {isLoading ? (
+        <Loader2 className='h-5 w-5 animate-spin' />
+      ) : (
+        <GoogleLogo />
+      )}
+      <span className='whitespace-nowrap'>
+        {isLoading ? 'Signing in...' : buttonText}
+      </span>
     </Button>
   );
 }
