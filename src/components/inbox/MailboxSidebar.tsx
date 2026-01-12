@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import type { Mailbox } from '@/lib/api';
+import { formatMailboxName } from '@/utils/mailboxUtils';
 
 /**
  * MailboxSidebar - Left sidebar showing mailboxes/labels with message counts
@@ -70,7 +71,9 @@ export function MailboxSidebar({
                   }`}
                   onClick={() => onSelect(mailbox.id)}
                 >
-                  <span>{mailbox.name}</span>
+                  <span className='truncate'>
+                    {formatMailboxName(mailbox.name)}
+                  </span>
                   {typeof mailbox.unread === 'number' && (
                     <span className='rounded-full bg-muted px-2 py-0.5 text-xs font-semibold'>
                       {mailbox.unread}
