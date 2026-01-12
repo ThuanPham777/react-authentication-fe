@@ -42,11 +42,13 @@ export function KanbanCardPreview({ item }: { item: KanbanEmailItem }) {
 
           <div className='mt-2'>
             {item.summary ? (
-              <div className='rounded-md bg-muted/40 p-2'>
+              <div className='rounded-md bg-muted/40 p-2 overflow-hidden'>
                 <p className='text-[10px] font-semibold text-muted-foreground'>
                   AI Summary
                 </p>
-                <p className='text-xs leading-relaxed'>{item.summary}</p>
+                <p className='text-xs leading-relaxed wrap-break-word overflow-wrap-anywhere'>
+                  {item.summary}
+                </p>
               </div>
             ) : (
               <div className='rounded-md border border-dashed p-2'>

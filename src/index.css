@@ -123,3 +123,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Utility for breaking long words/URLs */
+@layer utilities {
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}

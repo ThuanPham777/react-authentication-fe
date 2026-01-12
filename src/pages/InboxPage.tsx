@@ -33,8 +33,11 @@ import { KeyboardShortcutsHelp } from '@/components/inbox/KeyboardShortcutsHelp'
 export default function InboxPage() {
   const { user, logout } = useAuth();
 
-  // View mode and mailbox selection
-  const [mode, setMode] = useState<InboxMode>('traditional');
+  // View mode and mailbox selection (persisted in localStorage)
+  const [mode, setMode] = useState<InboxMode>(() => {
+    const saved = localStorage.getItem('inboxViewMode');
+    return (saved as InboxMode) || 'traditional';
+  });
   const [selectedMailbox, setSelectedMailbox] = useState<string | null>(null);
 
   // Mobile menu drawer state
@@ -108,11 +111,13 @@ export default function InboxPage() {
   /**
    * Force INBOX selection when switching to kanban mode
    * Kanban only works with INBOX emails
+   * Also persist view mode to localStorage
    */
   useEffect(() => {
     if (mode === 'kanban') {
       setSelectedMailbox('INBOX');
     }
+    localStorage.setItem('inboxViewMode', mode);
   }, [mode]);
 
   /**

@@ -152,14 +152,16 @@ export function KanbanCard({
       {/* Summary */}
       <div className='mt-2'>
         {item.summary ? (
-          <div className='rounded-lg bg-muted/40 p-2'>
+          <div className='rounded-lg bg-muted/40 p-2 overflow-hidden'>
             <div className='mb-1 flex items-center gap-1'>
               <Sparkles className='h-3.5 w-3.5 text-muted-foreground' />
               <p className='text-[10px] font-semibold text-muted-foreground'>
                 AI Summary
               </p>
             </div>
-            <p className='text-xs leading-relaxed'>{item.summary}</p>
+            <p className='text-xs leading-relaxed wrap-break-word overflow-wrap-anywhere'>
+              {item.summary}
+            </p>
           </div>
         ) : (
           <div className='rounded-lg border border-dashed p-2'>

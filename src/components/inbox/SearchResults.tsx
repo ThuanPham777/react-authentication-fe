@@ -173,11 +173,13 @@ export function SearchResults({
                 </CardHeader>
                 <CardContent>
                   {it.summary ? (
-                    <div className='rounded-lg bg-muted/40 p-2'>
+                    <div className='rounded-lg bg-muted/40 p-2 overflow-hidden'>
                       <p className='text-[10px] font-semibold text-muted-foreground'>
                         AI Summary
                       </p>
-                      <p className='text-xs leading-relaxed'>{it.summary}</p>
+                      <p className='text-xs leading-relaxed wrap-break-word overflow-wrap-anywhere'>
+                        {it.summary}
+                      </p>
                     </div>
                   ) : (
                     <p className='text-sm text-muted-foreground line-clamp-2'>
