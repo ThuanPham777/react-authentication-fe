@@ -16,7 +16,7 @@ export type StoredUser = {
 
 export type AuthBroadcastMessage =
   | { type: 'logout' }
-  | { type: 'login'; user: StoredUser };
+  | { type: 'login'; user: StoredUser; accessToken: string };
 
 /**
  * Initialize BroadcastChannel for cross-tab auth sync
@@ -130,19 +130,29 @@ export const setStoredUser = (user: StoredUser | null) => {
   }
 };
 
-export const persistRefreshInfo = (user: StoredUser, refreshToken: string) => {
+export const persistRefreshInfo = (
+  user: StoredUser,
+  refreshToken: string,
+  accessToken?: string
+) => {
   setStoredUser(user);
   localStorage.setItem('refreshToken', refreshToken);
   scheduleRefreshExpiryWatcher();
-  // Broadcast login to other tabs
-  broadcastAuthChange({ type: 'login', user });
+  // Broadcast login to other tabs (include access token so other tabs can sync)
+  if (accessToken) {
+    broadcastAuthChange({ type: 'login', user, accessToken });
+  }
 };
 
 export const touchRefreshWatcher = () => {
   scheduleRefreshExpiryWatcher();
 };
 
-export const clearAllAuth = () => {
+/**
+ * Clear all auth data locally WITHOUT broadcasting.
+ * Use this when receiving logout broadcast from another tab to avoid ping-pong loop.
+ */
+export const clearLocalAuth = () => {
   accessTokenMemory = null;
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
@@ -150,6 +160,14 @@ export const clearAllAuth = () => {
   clearTimer(refreshExpiryTimer);
   accessExpiryTimer = null;
   refreshExpiryTimer = null;
+};
+
+/**
+ * Clear all auth data and broadcast logout to other tabs.
+ * Use this when user initiates logout action.
+ */
+export const clearAllAuth = () => {
+  clearLocalAuth();
   // Broadcast logout to other tabs
   broadcastAuthChange({ type: 'logout' });
 };

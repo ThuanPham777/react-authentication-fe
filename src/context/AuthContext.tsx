@@ -19,6 +19,7 @@ import {
 } from 'react';
 import {
   clearAllAuth,
+  clearLocalAuth,
   getStoredUser,
   initAuthWatchers,
   setAccessToken,
@@ -122,13 +123,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
      */
     const handleAuthBroadcast = (message: AuthBroadcastMessage) => {
       if (message.type === 'logout') {
-        // Another tab logged out - clear local state immediately
-        clearAllAuth();
+        // Another tab logged out - clear local state WITHOUT broadcasting back
+        // Using clearLocalAuth prevents ping-pong broadcast loop
+        clearLocalAuth();
         setUserState(null);
         queryClient.clear();
       } else if (message.type === 'login') {
-        // Another tab logged in - sync user state
+        // Another tab logged in - sync user state AND access token
         setUserState(message.user);
+        setAccessToken(message.accessToken);
         touchRefreshWatcher();
       }
     };

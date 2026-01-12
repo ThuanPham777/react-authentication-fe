@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { setAccessToken, persistRefreshInfo } from '@/lib/auth';
 import {
@@ -22,8 +22,21 @@ import type { LoginResponse } from '@/lib/api';
 
 export default function SignUp() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
   const [error, setError] = useState<string>('');
+  // Track if we should navigate after user state is committed
+  const shouldNavigateRef = useRef(false);
+
+  /**
+   * Navigate to inbox once user state is committed
+   * This prevents race condition where navigate happens before React commits the state
+   */
+  useEffect(() => {
+    if (shouldNavigateRef.current && user) {
+      shouldNavigateRef.current = false;
+      navigate('/inbox', { replace: true });
+    }
+  }, [user, navigate]);
 
   /**
    * Handle successful Google OAuth registration/login
@@ -31,10 +44,17 @@ export default function SignUp() {
    */
   const handleGoogleSuccess = (response: LoginResponse) => {
     setError('');
+    // IMPORTANT: Set navigation flag FIRST before any state changes
+    // persistRefreshInfo triggers storage events that can sync user state
+    // before this flag is set, causing navigation to be skipped
+    shouldNavigateRef.current = true;
     setAccessToken(response.data.accessToken);
-    persistRefreshInfo(response.data.user, response.data.refreshToken);
+    persistRefreshInfo(
+      response.data.user,
+      response.data.refreshToken,
+      response.data.accessToken
+    );
     setUser(response.data.user);
-    navigate('/inbox', { replace: true });
   };
 
   /**
