@@ -30,6 +30,8 @@ export interface KanbanEmailItem {
   summary?: string;
   lastSummarizedAt?: string;
 
+  receivedAt?: string; // Email received date from Gmail (internalDate)
+
   hasAttachments?: boolean;
 
   createdAt?: string;

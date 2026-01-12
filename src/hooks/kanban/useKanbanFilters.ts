@@ -67,9 +67,13 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
           const comparison = nameA.localeCompare(nameB);
           return sortOrder === 'sender-asc' ? comparison : -comparison;
         } else {
-          // Sort by date
-          const timeA = new Date(a.createdAt ?? a.updatedAt ?? 0).getTime();
-          const timeB = new Date(b.createdAt ?? b.updatedAt ?? 0).getTime();
+          // Sort by date (use receivedAt for actual email time, fallback to createdAt/updatedAt)
+          const timeA = new Date(
+            a.receivedAt ?? a.createdAt ?? a.updatedAt ?? 0
+          ).getTime();
+          const timeB = new Date(
+            b.receivedAt ?? b.createdAt ?? b.updatedAt ?? 0
+          ).getTime();
           return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
         }
       });
