@@ -93,7 +93,7 @@ export function KanbanBoard({
 
   /**
    * Transform board data into column structure for rendering
-   * Each column gets title, status, and items array
+   * Each column gets title, status, items array, and gmailLabel
    */
   const columns = useMemo(
     () =>
@@ -103,6 +103,7 @@ export function KanbanBoard({
           status: st,
           title: config?.name || st,
           items: (board as any)[st] ?? [],
+          gmailLabel: config?.gmailLabel,
         };
       }),
     [board, statuses, columnConfig]
@@ -159,6 +160,7 @@ export function KanbanBoard({
             title={col.title}
             status={col.status}
             items={col.items}
+            gmailLabel={col.gmailLabel}
             onSnoozeItem={onSnoozeItem}
             onOpenMail={onOpenMail}
             loadingMap={loadingMap}

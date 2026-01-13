@@ -7,6 +7,7 @@
  * - Visual feedback when hovering with card
  * - Sortable card list
  * - Item count badge
+ * - Sync button for Gmail label columns
  */
 
 import type { KanbanEmailItem } from '@/lib/api';
@@ -23,6 +24,7 @@ import type { EmailStatus } from '../../../constants/constants.kanban';
  * @param title - Column title (e.g., "To Do", "In Progress")
  * @param status - Column status identifier
  * @param items - Email items in this column
+ * @param gmailLabel - Gmail label mapped to this column
  * @param onSnoozeItem - Callback for snoozing items
  * @param onOpenMail - Callback for opening email details
  * @param loadingMap - Map of loading states by messageId
@@ -32,6 +34,7 @@ export function KanbanColumn({
   title,
   status,
   items,
+  gmailLabel,
   onSnoozeItem,
   onOpenMail,
   loadingMap,
@@ -40,6 +43,7 @@ export function KanbanColumn({
   title: string;
   status: EmailStatus;
   items: KanbanEmailItem[];
+  gmailLabel?: string;
   onSnoozeItem: (messageId: string, untilIso: string) => void;
   onOpenMail?: (emailId: string) => void;
   loadingMap: Record<string, boolean>;
@@ -60,13 +64,16 @@ export function KanbanColumn({
         isOver ? 'ring-1 ring-primary/40 bg-primary/5' : 'hover:bg-card',
       ].join(' ')}
     >
-      <div className='mb-4 flex items-center justify-between'>
-        <div className='flex items-center gap-2'>
-          <h3 className='text-sm font-semibold'>{title}</h3>
-          <span className='rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold'>
-            {items.length}
+      <div className='mb-4 flex items-center gap-2'>
+        <h3 className='text-sm font-semibold'>{title}</h3>
+        <span className='rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold'>
+          {items.length}
+        </span>
+        {gmailLabel && (
+          <span className='rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300'>
+            {gmailLabel}
           </span>
-        </div>
+        )}
       </div>
 
       <SortableContext

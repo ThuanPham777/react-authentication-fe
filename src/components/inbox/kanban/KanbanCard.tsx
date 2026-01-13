@@ -142,10 +142,10 @@ export function KanbanCard({
         {item.subject ?? '(No subject)'}
       </p>
 
-      {/* Timestamp */}
-      {(item.createdAt || item.updatedAt) && (
+      {/* Timestamp - use receivedAt (email date) or fallback to createdAt (DB insert) */}
+      {(item.receivedAt || item.createdAt) && (
         <p className='mt-1 text-xs text-muted-foreground'>
-          {formatRelativeTime(item.createdAt || item.updatedAt)}
+          {formatRelativeTime(item.receivedAt || item.createdAt)}
         </p>
       )}
 

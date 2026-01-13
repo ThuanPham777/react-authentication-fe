@@ -100,6 +100,10 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
     return statuses.flatMap((st) => (board as any)[st] ?? []);
   }, [board, statuses]);
 
+  // Check if any filter is active
+  const hasActiveFilter =
+    filterUnread || filterAttachments || filterSender.trim().length > 0;
+
   return {
     // Processed data
     processedBoard,
@@ -116,5 +120,8 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
     setFilterSender,
     filterAttachments,
     setFilterAttachments,
+
+    // Filter state
+    hasActiveFilter,
   };
 }

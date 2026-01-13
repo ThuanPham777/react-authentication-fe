@@ -3,7 +3,7 @@
  * Manages column configuration with backend sync
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   type KanbanColumn,
@@ -12,11 +12,13 @@ import {
 import {
   getKanbanColumns,
   updateKanbanColumns,
+  syncColumnFromGmail,
 } from '@/lib/api/kanban-config.api';
 
 export function useKanbanConfig() {
   const queryClient = useQueryClient();
   const [isInitialized, setIsInitialized] = useState(false);
+  const previousColumnsRef = useRef<KanbanColumn[]>([]);
 
   // Fetch columns from backend
   const { data: columns = DEFAULT_KANBAN_CONFIG, isLoading } = useQuery({
@@ -25,7 +27,7 @@ export function useKanbanConfig() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Sync mutation
+  // Sync columns mutation
   const syncMutation = useMutation({
     mutationFn: updateKanbanColumns,
     onSuccess: (data) => {
@@ -33,14 +35,56 @@ export function useKanbanConfig() {
     },
   });
 
+  // Sync single column from Gmail mutation
+  const syncColumnMutation = useMutation({
+    mutationFn: ({ columnId, limit }: { columnId: string; limit?: number }) =>
+      syncColumnFromGmail(columnId, limit),
+    onSuccess: () => {
+      // Invalidate board query to refetch with new emails
+      queryClient.invalidateQueries({ queryKey: ['kanban-board'] });
+    },
+  });
+
   useEffect(() => {
     if (!isLoading && !isInitialized) {
       setIsInitialized(true);
+      previousColumnsRef.current = columns;
     }
-  }, [isLoading, isInitialized]);
+  }, [isLoading, isInitialized, columns]);
 
   const syncColumns = async (newColumns: KanbanColumn[]) => {
-    return syncMutation.mutateAsync(newColumns);
+    const oldColumns = previousColumnsRef.current;
+    const result = await syncMutation.mutateAsync(newColumns);
+
+    // Find columns with new/changed Gmail labels
+    const columnsToSync: string[] = [];
+    for (const col of newColumns) {
+      const oldCol = oldColumns.find((c) => c.id === col.id);
+      const oldLabel = oldCol?.gmailLabel || '';
+      const newLabel = col.gmailLabel || '';
+
+      // New column with Gmail label or existing column with changed label
+      if (newLabel && oldLabel !== newLabel) {
+        columnsToSync.push(col.id);
+      }
+    }
+
+    // Sync new columns from Gmail (sequentially to avoid rate limits)
+    for (const columnId of columnsToSync) {
+      try {
+        await syncColumnMutation.mutateAsync({ columnId, limit: 10 });
+      } catch (error) {
+        console.error(`Failed to sync column ${columnId}:`, error);
+      }
+    }
+
+    // Update reference for next comparison
+    previousColumnsRef.current = result;
+
+    // Always invalidate board after column changes
+    queryClient.invalidateQueries({ queryKey: ['kanban-board'] });
+
+    return result;
   };
 
   const addColumn = async (name: string, gmailLabel?: string) => {
@@ -76,6 +120,39 @@ export function useKanbanConfig() {
     await syncColumns(DEFAULT_KANBAN_CONFIG);
   };
 
+  /**
+   * Manually sync a single column from its Gmail label
+   * Useful for refreshing column content
+   */
+  const syncColumn = async (columnId: string, limit = 50) => {
+    return syncColumnMutation.mutateAsync({ columnId, limit });
+  };
+
+  /**
+   * Sync all columns that have Gmail labels
+   * Used for auto-sync on Kanban view mount
+   */
+  const syncAllColumns = async (limit = 50) => {
+    const columnsWithLabels = columns.filter((col) => col.gmailLabel);
+
+    if (columnsWithLabels.length === 0) return { synced: 0 };
+
+    let totalSynced = 0;
+    for (const col of columnsWithLabels) {
+      try {
+        const result = await syncColumnMutation.mutateAsync({
+          columnId: col.id,
+          limit,
+        });
+        totalSynced += result.synced;
+      } catch (error) {
+        console.error(`Failed to sync column ${col.name}:`, error);
+      }
+    }
+
+    return { synced: totalSynced };
+  };
+
   return {
     columns,
     addColumn,
@@ -83,8 +160,10 @@ export function useKanbanConfig() {
     deleteColumn,
     reorderColumns,
     resetToDefault,
+    syncColumn,
+    syncAllColumns,
     isLoading,
-    isSyncing: syncMutation.isPending,
-    error: syncMutation.error,
+    isSyncing: syncMutation.isPending || syncColumnMutation.isPending,
+    error: syncMutation.error || syncColumnMutation.error,
   };
 }

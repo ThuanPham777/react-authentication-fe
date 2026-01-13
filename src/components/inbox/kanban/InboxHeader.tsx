@@ -1,6 +1,11 @@
 import { type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from '@/components/ui/tooltip';
 import { SearchBarWithSuggestions } from '../SearchBarWithSuggestions';
 import { ModeToggle, type InboxMode } from '../mode-toggle';
 import { Menu } from 'lucide-react';
@@ -97,15 +102,25 @@ export function InboxHeader({
         </div>
 
         <div className='flex items-center gap-1 sm:gap-3'>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={onShowKeyboardHelp}
-            title='Keyboard shortcuts (Press ?)'
-            className='hidden sm:flex'
-          >
-            <span className='text-lg'>?</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={onShowKeyboardHelp}
+                className='hidden sm:flex text-lg'
+              >
+                ?
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent
+              side='bottom'
+              sideOffset={6}
+            >
+              Keyboard shortcuts (Press ?)
+            </TooltipContent>
+          </Tooltip>
           <ModeToggle
             mode={mode}
             onChange={onModeChange}

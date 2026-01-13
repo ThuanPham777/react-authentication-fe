@@ -22,3 +22,22 @@ export async function updateKanbanColumns(
   }>('/api/kanban/columns', { columns });
   return response.data.data.columns;
 }
+
+/**
+ * Sync emails from Gmail label into a specific column
+ * @param columnId - The column ID to sync emails into
+ * @param limit - Max number of emails to sync (default: 10)
+ */
+export async function syncColumnFromGmail(
+  columnId: string,
+  limit = 10
+): Promise<{ synced: number; message: string }> {
+  const response = await apiClient.post<{
+    status: 'success';
+    data: { synced: number; message: string };
+  }>(
+    `/api/kanban/columns/${encodeURIComponent(columnId)}/sync?limit=${limit}`,
+    {}
+  );
+  return response.data.data;
+}

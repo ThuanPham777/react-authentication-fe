@@ -58,31 +58,26 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     isSyncing,
   } = useKanbanConfig();
 
-  // Wrap column operations to invalidate board query
+  // Wrap column operations (hook already invalidates board query)
   const addColumn = async (name: string, gmailLabel?: string) => {
     const result = await addColumnBase(name, gmailLabel);
-    queryClient.invalidateQueries({ queryKey });
     return result;
   };
 
   const updateColumn = async (id: string, updates: Partial<any>) => {
     await updateColumnBase(id, updates);
-    queryClient.invalidateQueries({ queryKey });
   };
 
   const deleteColumn = async (id: string) => {
     await deleteColumnBase(id);
-    queryClient.invalidateQueries({ queryKey });
   };
 
   const reorderColumns = async (cols: any[]) => {
     await reorderColumnsBase(cols);
-    queryClient.invalidateQueries({ queryKey });
   };
 
   const resetToDefault = async () => {
     await resetToDefaultBase();
-    queryClient.invalidateQueries({ queryKey });
   };
 
   const keyLabel = labelId ?? 'INBOX';
@@ -236,39 +231,8 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     window.open(gmailUrl, '_blank', 'noopener,noreferrer');
   };
 
-  /**
-   * Loads more items when user scrolls to bottom
-   */
-  const loadMore = () => {
-    if (boardQuery.hasNextPage && !boardQuery.isFetchingNextPage) {
-      boardQuery.fetchNextPage();
-    }
-  };
-
   // Auto-load more when scrolling to bottom (intersection observer)
   const loadMoreRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const currentRef = loadMoreRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [boardQuery.hasNextPage, boardQuery.isFetchingNextPage]);
 
   // Use custom filters hook
   const {
@@ -282,7 +246,48 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     setFilterSender,
     filterAttachments,
     setFilterAttachments,
+    hasActiveFilter,
   } = useKanbanFilters({ board, statuses });
+
+  // Count filtered items to check if we should show "no results" message
+  const filteredItemsCount = useMemo(() => {
+    if (!processedBoard) return 0;
+    return statuses.reduce(
+      (sum, st) => sum + ((processedBoard as any)[st]?.length || 0),
+      0
+    );
+  }, [processedBoard, statuses]);
+
+  // Auto-load more when scrolling to bottom (intersection observer)
+  // Only trigger if: has next page AND not currently fetching AND NO filter is active
+  // Filters are client-side, so loading more data won't help when filtering
+  useEffect(() => {
+    const currentRef = loadMoreRef.current;
+    if (!currentRef) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Don't load more if any filter is active (filters are client-side)
+        const shouldLoad =
+          entries[0].isIntersecting &&
+          boardQuery.hasNextPage &&
+          !boardQuery.isFetchingNextPage &&
+          !hasActiveFilter;
+
+        if (shouldLoad) {
+          console.log('[Kanban] Loading more emails...');
+          boardQuery.fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    observer.observe(currentRef);
+
+    return () => {
+      observer.unobserve(currentRef);
+    };
+  }, [boardQuery, hasActiveFilter, filteredItemsCount]);
 
   /**
    * Auto-summarize items that don't have summaries yet
@@ -439,8 +444,15 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
             columnConfig={columns}
           />
 
-          {/* Invisible sentinel for auto-loading more */}
-          {boardQuery.hasNextPage && (
+          {/* Show "no results" message when filter is active but no items match */}
+          {hasActiveFilter && filteredItemsCount === 0 && (
+            <div className='flex items-center justify-center py-8 text-muted-foreground'>
+              <p>No emails match your filter criteria</p>
+            </div>
+          )}
+
+          {/* Sentinel for auto-loading more - only show when NO filter is active */}
+          {!hasActiveFilter && (
             <div
               ref={loadMoreRef}
               className='h-20 flex items-center justify-center'

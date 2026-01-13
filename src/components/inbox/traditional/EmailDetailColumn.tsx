@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EmailDetail } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from '@/components/ui/tooltip';
+import {
   Star,
   Reply,
   ReplyAll,
@@ -310,22 +315,45 @@ export function EmailDetailColumn({
           </p>
         </div>
         <div className='flex items-center gap-2'>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={handleArchive}
-            disabled={isLoadingAction}
-          >
-            <Archive className='h-4 w-4' />
-          </Button>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => email && handleStarToggle(email.starred)}
-            disabled={isLoadingAction || !email}
-          >
-            <Star className='h-4 w-4' />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={handleArchive}
+                disabled={isLoadingAction}
+              >
+                <Archive className='h-4 w-4' />
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent
+              side='bottom'
+              sideOffset={6}
+            >
+              Archive
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => email && handleStarToggle(email.starred)}
+                disabled={isLoadingAction || !email}
+              >
+                <Star className='h-4 w-4' />
+              </Button>
+            </TooltipTrigger>
+
+            <TooltipContent
+              side='bottom'
+              sideOffset={6}
+            >
+              {email?.starred ? 'Remove star' : 'Add star'}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <div className='flex-1 overflow-y-auto min-h-0 p-4 scrollbar-thin touch-scroll smooth-scroll'>

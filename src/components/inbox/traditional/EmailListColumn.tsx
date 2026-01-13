@@ -13,6 +13,11 @@ import type { EmailListItem } from '@/lib/api';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import { Button } from '@/components/ui/button';
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from '@/components/ui/tooltip';
+import {
   CheckSquare,
   Trash2,
   Star,
@@ -305,18 +310,29 @@ export function EmailListColumn({
                         {email.preview}
                       </p>
                     </div>
-                    <button
-                      type='button'
-                      className='text-muted-foreground hover:text-yellow-500 disabled:opacity-50'
-                      onClick={() => onStarToggle(email.id, email.starred)}
-                      disabled={actionsDisabled}
-                    >
-                      {email.starred ? (
-                        <Star className='h-4 w-4 fill-current' />
-                      ) : (
-                        <StarOff className='h-4 w-4' />
-                      )}
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type='button'
+                          className='text-muted-foreground hover:text-yellow-500 disabled:opacity-50'
+                          onClick={() => onStarToggle(email.id, email.starred)}
+                          disabled={actionsDisabled}
+                        >
+                          {email.starred ? (
+                            <Star className='h-4 w-4 fill-current' />
+                          ) : (
+                            <StarOff className='h-4 w-4' />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+
+                      <TooltipContent
+                        side='top'
+                        sideOffset={6}
+                      >
+                        {email.starred ? 'Remove star' : 'Add star'}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </li>
               );
