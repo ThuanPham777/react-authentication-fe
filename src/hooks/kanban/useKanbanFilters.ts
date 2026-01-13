@@ -37,9 +37,9 @@ export function useKanbanFilters({ board, statuses }: UseKanbanFiltersProps) {
     for (const st of statuses) {
       let items: KanbanEmailItem[] = (board as any)[st] ?? [];
 
-      // Filter by unread status (must be in INBOX)
+      // Filter by unread status
       if (filterUnread) {
-        items = items.filter((i) => i.status === 'INBOX');
+        items = items.filter((i) => i.unread === true);
       }
 
       // Filter by sender name or email (case-insensitive)

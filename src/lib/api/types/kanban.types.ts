@@ -17,6 +17,8 @@ export interface KanbanEmailItem {
   messageId: string;
   mailboxId?: string;
 
+  unread?: boolean;
+
   senderName?: string;
   senderEmail?: string;
   subject?: string;
