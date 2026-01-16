@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { gmailCached } from '@/lib/api';
+import { gmailCached, startGmailWatch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { MailboxSidebar } from '../components/inbox/MailboxSidebar';
 import { MobileMenuDrawer } from '../components/inbox/MobileMenuDrawer';
@@ -9,7 +9,6 @@ import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import { KeyboardShortcutsHelp } from '@/components/inbox/KeyboardShortcutsHelp';
 import {
   useGmailPush,
-  startGmailWatch,
   type GmailNotification,
 } from '@/hooks/email/useGmailPush';
 import {
