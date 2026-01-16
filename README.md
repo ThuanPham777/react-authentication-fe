@@ -1,4 +1,4 @@
-# React Email Client & AI-Powered Kanban - Frontend
+# React Email Client Integration Gmail & AI-Powered Kanban - Frontend
 
 Modern React single-page application featuring intelligent email management with AI-powered Kanban board, real-time Gmail integration, offline caching, and seamless authentication.
 
@@ -85,7 +85,7 @@ Modern React single-page application featuring intelligent email management with
 ### 1. Install Dependencies
 
 ```bash
-cd react-authentication-fe
+cd ai-gmail-kanban-fe
 npm install
 ```
 
