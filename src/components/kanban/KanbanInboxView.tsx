@@ -85,7 +85,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
   // Loading states for individual cards
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
   const [summarizingMap, setSummarizingMap] = useState<Record<string, boolean>>(
-    {}
+    {},
   );
 
   // Fetch kanban board data with infinite scroll
@@ -116,25 +116,34 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
   // Use column IDs as statuses
   const statuses = useMemo(
     () => columns.map((col) => col.id as EmailStatus),
-    [columns]
+    [columns],
   );
 
-  // Merge all pages into a single board
+  // Merge all pages into a single board with deduplication
   const board: KanbanBoardData | undefined = useMemo(() => {
     if (!boardQuery.data?.pages) return undefined;
 
     const merged: KanbanBoardData = {};
+    const seenIds = new Map<string, Set<string>>(); // Track seen messageIds per status
 
     // Initialize dynamic status arrays
     for (const status of statuses) {
       merged[status] = [];
+      seenIds.set(status, new Set());
     }
 
-    // Combine all pages
+    // Combine all pages with deduplication
     for (const page of boardQuery.data.pages) {
       for (const status of statuses) {
         if (page.data.data[status]) {
-          merged[status].push(...page.data.data[status]);
+          const statusSeenIds = seenIds.get(status)!;
+          for (const item of page.data.data[status]) {
+            // Skip duplicate emails (same messageId)
+            if (item?.messageId && !statusSeenIds.has(item.messageId)) {
+              statusSeenIds.add(item.messageId);
+              merged[status].push(item);
+            }
+          }
         }
       }
     }
@@ -197,7 +206,9 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
 
     if (woke > 0) {
       show(
-        woke === 1 ? 'Snoozed email is back' : `${woke} snoozed emails are back`
+        woke === 1
+          ? 'Snoozed email is back'
+          : `${woke} snoozed emails are back`,
       );
       setSnoozedCount(snoozedIdsRef.current.size);
     }
@@ -253,9 +264,30 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     if (!processedBoard) return 0;
     return statuses.reduce(
       (sum, st) => sum + ((processedBoard as any)[st]?.length || 0),
-      0
+      0,
     );
   }, [processedBoard, statuses]);
+
+  // Track last page items count to detect when no new data was loaded
+  const lastPageItemsCount = useMemo(() => {
+    const pages = boardQuery.data?.pages;
+    if (!pages || pages.length === 0) return 0;
+    const lastPage = pages[pages.length - 1];
+    return statuses.reduce(
+      (sum, st) => sum + (lastPage.data.data[st]?.length || 0),
+      0,
+    );
+  }, [boardQuery.data?.pages, statuses]);
+
+  // Track consecutive empty pages to prevent infinite loop edge cases
+  const consecutiveEmptyPagesRef = useRef(0);
+
+  // Reset consecutive empty pages counter when we get items
+  useEffect(() => {
+    if (lastPageItemsCount > 0) {
+      consecutiveEmptyPagesRef.current = 0;
+    }
+  }, [lastPageItemsCount]);
 
   // Auto-load more when scrolling to bottom (intersection observer)
   // Only trigger if: has next page AND not currently fetching AND NO filter is active
@@ -267,18 +299,29 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     const observer = new IntersectionObserver(
       (entries) => {
         // Don't load more if any filter is active (filters are client-side)
+        // Allow loading even if last page was empty (backend may be syncing from Gmail)
+        // BUT prevent infinite loop if we get too many empty pages (3+)
         const shouldLoad =
           entries[0].isIntersecting &&
           boardQuery.hasNextPage &&
           !boardQuery.isFetchingNextPage &&
-          !hasActiveFilter;
+          !hasActiveFilter &&
+          consecutiveEmptyPagesRef.current < 3;
 
         if (shouldLoad) {
-          console.log('[Kanban] Loading more emails...');
+          // Track empty pages to prevent infinite loop
+          if (lastPageItemsCount === 0) {
+            consecutiveEmptyPagesRef.current += 1;
+            console.log(
+              `[Kanban] Loading more (empty page ${consecutiveEmptyPagesRef.current}/3, backend may be syncing from Gmail)...`,
+            );
+          } else {
+            console.log('[Kanban] Loading more emails...');
+          }
           boardQuery.fetchNextPage();
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '100px' },
     );
 
     observer.observe(currentRef);
@@ -286,7 +329,7 @@ export function KanbanInboxView({ labelId }: { labelId?: string }) {
     return () => {
       observer.unobserve(currentRef);
     };
-  }, [boardQuery, hasActiveFilter, filteredItemsCount]);
+  }, [boardQuery, hasActiveFilter, filteredItemsCount, lastPageItemsCount]);
 
   /**
    * Auto-summarize items that don't have summaries yet

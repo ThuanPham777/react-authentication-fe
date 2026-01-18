@@ -1,10 +1,14 @@
 import { type KanbanColumn } from '@/types/kanban-config.types';
 
+/**
+ * Built-in email status constants.
+ * Note: EmailStatus type accepts ANY string (for dynamic columns),
+ * but these constants are used for special logic:
+ * - INBOX: Default status for new emails
+ * - SNOOZED: Special temporary status for snoozed emails
+ */
 export const EmailStatus = {
   INBOX: 'INBOX',
-  TODO: 'TODO',
-  IN_PROGRESS: 'IN_PROGRESS',
-  DONE: 'DONE',
   SNOOZED: 'SNOOZED',
 } as const;
 

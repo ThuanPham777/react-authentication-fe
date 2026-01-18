@@ -25,11 +25,11 @@ import { useMemo, useState } from 'react';
 import type { KanbanBoardData, KanbanEmailItem } from '@/lib/api';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCardPreview } from './KanbanCardPreview';
+import { type EmailStatus } from '../../constants/constants.kanban';
 import {
-  DEFAULT_KANBAN_STATUSES,
-  type EmailStatus,
-} from '../../constants/constants.kanban';
-import type { KanbanColumn as KanbanColumnConfig } from '@/types/kanban-config.types';
+  type KanbanColumn as KanbanColumnConfig,
+  DEFAULT_KANBAN_CONFIG,
+} from '@/types/kanban-config.types';
 
 /**
  * Finds a kanban item by messageId across all columns
@@ -70,7 +70,7 @@ export function KanbanBoard({
   onOpenMail,
   loadingMap,
   summarizingMap,
-  statuses = DEFAULT_KANBAN_STATUSES,
+  statuses = DEFAULT_KANBAN_CONFIG.map((c) => c.id),
   columnConfig,
 }: {
   board: KanbanBoardData;
