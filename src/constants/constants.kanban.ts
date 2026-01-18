@@ -1,27 +1,23 @@
 // src/pages/inbox/components/kanban/constants.ts
 
+/**
+ * Built-in email status constants.
+ * Note: EmailStatus type accepts ANY string (for dynamic columns),
+ * but these constants are used for special logic:
+ * - INBOX: Default status for new emails
+ * - SNOOZED: Special temporary status for snoozed emails
+ */
 export const EMAIL_STATUS = {
   INBOX: 'INBOX',
-  TODO: 'TODO',
-  IN_PROGRESS: 'IN_PROGRESS',
-  DONE: 'DONE',
   SNOOZED: 'SNOOZED',
 } as const;
 
-export type EmailStatus = (typeof EMAIL_STATUS)[keyof typeof EMAIL_STATUS];
+export type EmailStatus = string; // Dynamic status support - any column ID
 
-export const DEFAULT_KANBAN_STATUSES: EmailStatus[] = [
-  EMAIL_STATUS.INBOX,
-  EMAIL_STATUS.TODO,
-  EMAIL_STATUS.IN_PROGRESS,
-  EMAIL_STATUS.DONE,
-];
-
-export const COLUMN_TITLES: Record<EmailStatus, string> = {
+// COLUMN_TITLES is deprecated - column names come from dynamic config now
+// Keeping for backward compatibility with any remaining hard-coded references
+export const COLUMN_TITLES: Record<string, string> = {
   INBOX: 'INBOX',
-  TODO: 'TO DO',
-  IN_PROGRESS: 'IN PROGRESS',
-  DONE: 'DONE',
   SNOOZED: 'SNOOZED',
 };
 
