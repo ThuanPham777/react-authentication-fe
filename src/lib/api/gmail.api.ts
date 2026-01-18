@@ -34,12 +34,12 @@ export const getMailboxes = async (): Promise<MailboxResponse> => {
 export const getMailboxEmails = async (
   mailboxId: string,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
 ): Promise<MailboxEmailsResponse> => {
   const safeId = encodeURIComponent(mailboxId);
   const response = await apiClient.get<MailboxEmailsResponse>(
     `/api/mailboxes/${safeId}/emails`,
-    { params: { page, limit: pageSize } }
+    { params: { page, limit: pageSize } },
   );
   return response.data;
 };
@@ -54,12 +54,12 @@ export const getMailboxEmails = async (
 export const getMailboxEmailsInfinite = async (
   mailboxId: string,
   pageToken?: string,
-  pageSize = 20
+  pageSize = 20,
 ): Promise<MailboxEmailsResponse> => {
   const safeId = encodeURIComponent(mailboxId);
   const response = await apiClient.get<MailboxEmailsResponse>(
     `/api/mailboxes/${safeId}/emails`,
-    { params: { pageToken, limit: pageSize } }
+    { params: { pageToken, limit: pageSize } },
   );
   return response.data;
 };
@@ -70,25 +70,50 @@ export const getMailboxEmailsInfinite = async (
  * @param emailId - Gmail message ID
  */
 export const getEmailDetail = async (
-  emailId: string
+  emailId: string,
 ): Promise<EmailDetailResponse> => {
   const safeId = encodeURIComponent(emailId);
   const response = await apiClient.get<EmailDetailResponse>(
-    `/api/emails/${safeId}`
+    `/api/emails/${safeId}`,
   );
   return response.data;
 };
 
 /**
  * Sends a new email
- * @param data - Email content (to, cc, bcc, subject, body)
+ * @param data - Email content (to, cc, bcc, subject, body, attachments)
  */
 export const sendEmail = async (
-  data: SendEmailData
+  data: SendEmailData,
 ): Promise<SendEmailResponse> => {
+  // If no attachments, use regular JSON request
+  if (!data.attachments || data.attachments.length === 0) {
+    const response = await apiClient.post<SendEmailResponse>(
+      '/api/emails/send',
+      data,
+    );
+    return response.data;
+  }
+
+  // With attachments, use FormData
+  const formData = new FormData();
+  data.to.forEach((recipient) => formData.append('to[]', recipient));
+  formData.append('subject', data.subject);
+  formData.append('body', data.body);
+  if (data.cc) {
+    data.cc.forEach((recipient) => formData.append('cc[]', recipient));
+  }
+  if (data.bcc) {
+    data.bcc.forEach((recipient) => formData.append('bcc[]', recipient));
+  }
+  data.attachments.forEach((file) => {
+    formData.append('attachments', file);
+  });
+
   const response = await apiClient.post<SendEmailResponse>(
     '/api/emails/send',
-    data
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return response.data;
 };
@@ -96,16 +121,37 @@ export const sendEmail = async (
 /**
  * Replies to an existing email
  * @param emailId - Original email's message ID
- * @param data - Reply content (body, replyAll flag)
+ * @param data - Reply content (body, replyAll flag, attachments)
  */
 export const replyEmail = async (
   emailId: string,
-  data: ReplyEmailData
+  data: ReplyEmailData,
 ): Promise<ReplyEmailResponse> => {
   const safeId = encodeURIComponent(emailId);
+
+  // If no attachments, use regular JSON request
+  if (!data.attachments || data.attachments.length === 0) {
+    const response = await apiClient.post<ReplyEmailResponse>(
+      `/api/emails/${safeId}/reply`,
+      data,
+    );
+    return response.data;
+  }
+
+  // With attachments, use FormData
+  const formData = new FormData();
+  formData.append('body', data.body);
+  if (data.replyAll !== undefined) {
+    formData.append('replyAll', String(data.replyAll));
+  }
+  data.attachments.forEach((file) => {
+    formData.append('attachments', file);
+  });
+
   const response = await apiClient.post<ReplyEmailResponse>(
     `/api/emails/${safeId}/reply`,
-    data
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return response.data;
 };
@@ -113,16 +159,44 @@ export const replyEmail = async (
 /**
  * Forwards an existing email
  * @param emailId - Original email id (mailboxId|messageId or raw messageId)
- * @param data - Forward content (to, cc, bcc, subject, body)
+ * @param data - Forward content (to, cc, bcc, subject, body, attachments)
  */
 export const forwardEmail = async (
   emailId: string,
-  data: SendEmailData
+  data: SendEmailData,
 ): Promise<SendEmailResponse> => {
   const safeId = encodeURIComponent(emailId);
+
+  // If no attachments, use regular JSON request
+  if (!data.attachments || data.attachments.length === 0) {
+    const response = await apiClient.post<SendEmailResponse>(
+      `/api/emails/${safeId}/forward`,
+      data,
+    );
+    return response.data;
+  }
+
+  // With attachments, use FormData
+  const formData = new FormData();
+  data.to.forEach((recipient) => formData.append('to[]', recipient));
+  if (data.subject) {
+    formData.append('subject', data.subject);
+  }
+  formData.append('body', data.body);
+  if (data.cc) {
+    data.cc.forEach((recipient) => formData.append('cc[]', recipient));
+  }
+  if (data.bcc) {
+    data.bcc.forEach((recipient) => formData.append('bcc[]', recipient));
+  }
+  data.attachments.forEach((file) => {
+    formData.append('attachments', file);
+  });
+
   const response = await apiClient.post<SendEmailResponse>(
     `/api/emails/${safeId}/forward`,
-    data
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return response.data;
 };
@@ -134,12 +208,31 @@ export const forwardEmail = async (
  */
 export const modifyEmail = async (
   emailId: string,
-  data: ModifyEmailData
+  data: ModifyEmailData,
 ): Promise<ModifyEmailResponse> => {
   const safeId = encodeURIComponent(emailId);
   const response = await apiClient.post<ModifyEmailResponse>(
     `/api/emails/${safeId}/modify`,
-    data
+    data,
+  );
+  return response.data;
+};
+
+/**
+ * Global email search - searches across ALL labels without label restrictions
+ * Uses Gmail's q parameter for query-based search
+ * @param query - Search query string (e.g., "from:user@example.com" or "subject:meeting")
+ * @param pageToken - Token from previous response for pagination
+ * @param pageSize - Number of emails per request
+ */
+export const searchEmails = async (
+  query: string,
+  pageToken?: string,
+  pageSize = 20,
+): Promise<MailboxEmailsResponse> => {
+  const response = await apiClient.get<MailboxEmailsResponse>(
+    `/api/emails/search`,
+    { params: { q: query, pageToken, limit: pageSize } },
   );
   return response.data;
 };
@@ -152,7 +245,7 @@ export const modifyEmail = async (
  */
 export const getAttachment = async (
   emailId: string,
-  attachmentId: string
+  attachmentId: string,
 ): Promise<Blob> => {
   const response = await apiClient.get(`/api/attachments/${attachmentId}`, {
     params: { emailId },
@@ -177,7 +270,7 @@ export interface GmailWatchResponse {
  */
 export const startGmailWatch = async (): Promise<GmailWatchResponse> => {
   const response = await apiClient.post<{ data: GmailWatchResponse }>(
-    '/api/gmail/watch/start'
+    '/api/gmail/watch/start',
   );
   return response.data.data;
 };

@@ -57,13 +57,14 @@ export default function KanbanPage() {
       console.log('✅ IndexedDB cache invalidated for real-time update');
 
       // STEP 2: Now invalidate React Query to trigger refetch
-      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] });
       queryClient.invalidateQueries({ queryKey: ['mailboxes'] });
-      queryClient.invalidateQueries({ queryKey: ['kanban-emails'] });
+      queryClient.invalidateQueries({ queryKey: ['kanban-board'] });
 
       console.log('✅ React Query invalidated, UI will refresh');
     },
-    [queryClient]
+    [queryClient],
   );
 
   // Gmail Push Notifications via WebSocket

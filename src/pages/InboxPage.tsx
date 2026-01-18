@@ -42,6 +42,9 @@ export default function InboxPage() {
   // Email filtering
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
 
+  // Track newly arrived email IDs for highlighting
+  const [newEmailIds, setNewEmailIds] = useState<Set<string>>(new Set());
+
   /**
    * Handle Gmail push notification - invalidate caches and trigger refresh
    * IMPORTANT: Must invalidate IndexedDB cache BEFORE React Query
@@ -50,6 +53,20 @@ export default function InboxPage() {
   const handleGmailNotification = useCallback(
     async (notification: GmailNotification) => {
       console.log('🔔 Gmail notification received:', notification);
+
+      // Extract new email IDs from the notification for highlighting
+      const addedMessageIds = notification.changes
+        .filter((change) => change.type === 'messageAdded')
+        .map((change) => change.messageId);
+
+      if (addedMessageIds.length > 0) {
+        setNewEmailIds((prev) => {
+          const updated = new Set(prev);
+          addedMessageIds.forEach((id) => updated.add(id));
+          return updated;
+        });
+        console.log('🆕 New emails detected:', addedMessageIds);
+      }
 
       // ALWAYS invalidate cache when receiving any Gmail notification
       // Gmail Push can notify about various changes, and we want to stay in sync
@@ -64,13 +81,15 @@ export default function InboxPage() {
 
       // STEP 2: Now invalidate React Query to trigger refetch
       // Since IndexedDB is now empty, it will fetch from server
-      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-search'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] });
       queryClient.invalidateQueries({ queryKey: ['mailboxes'] });
-      queryClient.invalidateQueries({ queryKey: ['kanban-emails'] });
+      queryClient.invalidateQueries({ queryKey: ['kanban-board'] });
 
       console.log('✅ React Query invalidated, UI will refresh');
     },
-    [queryClient]
+    [queryClient],
   );
 
   // Gmail Push Notifications via WebSocket
@@ -176,6 +195,14 @@ export default function InboxPage() {
                 <InboxView
                   mailboxId={selectedMailbox}
                   emailSearchTerm={emailSearchTerm}
+                  newEmailIds={newEmailIds}
+                  onClearNewEmailId={(id) => {
+                    setNewEmailIds((prev) => {
+                      const updated = new Set(prev);
+                      updated.delete(id);
+                      return updated;
+                    });
+                  }}
                 />
               )}
             </div>

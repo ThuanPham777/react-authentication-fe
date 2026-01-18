@@ -69,11 +69,13 @@ export function useEmailMutations({
       emailId,
       body,
       replyAll,
+      attachments,
     }: {
       emailId: string;
       body: string;
       replyAll?: boolean;
-    }) => gmailCached.replyEmail(emailId, { body, replyAll }),
+      attachments?: File[];
+    }) => gmailCached.replyEmail(emailId, { body, replyAll, attachments }),
     onSuccess: (_data, vars) => {
       onSuccess?.('Reply sent successfully');
       qc.invalidateQueries({ queryKey: ['emails-infinite', mailboxId] });
@@ -131,13 +133,13 @@ export function useEmailMutations({
                     unread: actions.markRead
                       ? false
                       : actions.markUnread
-                      ? true
-                      : email.unread,
+                        ? true
+                        : email.unread,
                     starred: actions.star
                       ? true
                       : actions.unstar
-                      ? false
-                      : email.starred,
+                        ? false
+                        : email.starred,
                   };
                 })
                 .filter((email: any) => {
@@ -160,13 +162,13 @@ export function useEmailMutations({
             unread: actions.markRead
               ? false
               : actions.markUnread
-              ? true
-              : old.data.unread,
+                ? true
+                : old.data.unread,
             starred: actions.star
               ? true
               : actions.unstar
-              ? false
-              : old.data.starred,
+                ? false
+                : old.data.starred,
           },
         };
       });

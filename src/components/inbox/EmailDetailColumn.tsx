@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { EmailDetail } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +20,7 @@ import {
 import { getGmailUrl } from '@/utils/emailUtils';
 import { useAuth } from '@/context/AuthContext';
 import { MailIcon } from './MailIcon';
+import { AttachmentUploader, type AttachmentFile } from './AttachmentUploader';
 
 function sanitizeEmailHtml(html: string) {
   // Email bodies often rely on <style> tags for layout (like Gmail).
@@ -31,7 +32,7 @@ function sanitizeEmailHtml(html: string) {
 
     // Strip risky/active tags (keep <style> for email layout)
     const forbidden = doc.querySelectorAll(
-      'script, meta, base, title, iframe, object, embed'
+      'script, meta, base, title, iframe, object, embed',
     );
     forbidden.forEach((n) => n.remove());
 
@@ -126,7 +127,7 @@ function sanitizeEmailHtml(html: string) {
  * @param onReply - Reply/reply-all handler
  * @param onModify - Email action handler (star, archive, mark read)
  * @param onDownloadAttachment - Attachment download handler
- * @param isLoadingAction - Loading state for ongoing actions
+ * @param isLoadingReply - Loading state for reply actions
  * @param onForward - Forward button handler
  */
 export function EmailDetailColumn({
@@ -138,7 +139,7 @@ export function EmailDetailColumn({
   onReply,
   onModify,
   onDownloadAttachment,
-  isLoadingAction,
+  isLoadingReply,
   onForward,
 }: {
   email: EmailDetail | null;
@@ -146,7 +147,11 @@ export function EmailDetailColumn({
   hasSelection: boolean;
   onBack?: () => void;
   isMobile?: boolean;
-  onReply?: (body: string, replyAll?: boolean) => Promise<void>;
+  onReply?: (
+    body: string,
+    replyAll?: boolean,
+    attachments?: File[],
+  ) => Promise<void>;
   onModify?: (actions: {
     markRead?: boolean;
     markUnread?: boolean;
@@ -155,15 +160,19 @@ export function EmailDetailColumn({
     delete?: boolean;
   }) => void;
   onDownloadAttachment?: (attachmentId: string, fileName: string) => void;
-  isLoadingAction?: boolean;
+  isLoadingReply?: boolean;
   onForward?: (email: EmailDetail) => void;
 }) {
   const { user } = useAuth();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const replyEditorRef = useRef<HTMLDivElement | null>(null);
   const [iframeHeight, setIframeHeight] = useState<number>(420);
   // Reply composer state
   const [replyMode, setReplyMode] = useState<'reply' | 'replyAll' | null>(null);
   const [replyBody, setReplyBody] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<AttachmentFile[]>(
+    [],
+  );
   const [submittingReply, setSubmittingReply] = useState(false);
 
   const safeBodyHtml = useMemo(() => {
@@ -248,13 +257,27 @@ export function EmailDetailColumn({
   }, [safeBodyHtml]);
 
   /**
-   * Initiates reply mode (reply or reply-all)
+   * Initiates reply mode (reply or reply-all) and scrolls to editor
    */
-  const startReply = (mode: 'reply' | 'replyAll') => {
-    if (!onReply) return;
-    setReplyMode(mode);
-    setReplyBody('');
-  };
+  const startReply = useCallback(
+    (mode: 'reply' | 'replyAll') => {
+      if (!onReply) return;
+      setReplyMode(mode);
+      setReplyBody('');
+      setReplyAttachments([]);
+
+      // Auto-scroll to reply editor after state update and render
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          replyEditorRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+        }, 50);
+      });
+    },
+    [onReply],
+  );
 
   /**
    * Closes reply composer and clears draft
@@ -262,6 +285,7 @@ export function EmailDetailColumn({
   const cancelReply = () => {
     setReplyMode(null);
     setReplyBody('');
+    setReplyAttachments([]);
   };
 
   /**
@@ -271,7 +295,12 @@ export function EmailDetailColumn({
     if (!replyMode || !onReply || !replyBody.trim()) return;
     try {
       setSubmittingReply(true);
-      await onReply(replyBody, replyMode === 'replyAll');
+      const attachmentFiles = replyAttachments.map((att) => att.file);
+      await onReply(
+        replyBody,
+        replyMode === 'replyAll',
+        attachmentFiles.length > 0 ? attachmentFiles : undefined,
+      );
       cancelReply();
     } finally {
       setSubmittingReply(false);
@@ -298,64 +327,69 @@ export function EmailDetailColumn({
 
   return (
     <div className='flex h-full flex-col rounded-xl border bg-card shadow-sm min-h-0 min-w-0 overflow-hidden'>
-      <div className='flex items-center justify-between border-b px-4 py-3 shrink-0'>
-        <div className='flex items-center gap-2'>
-          {isMobile && onBack && (
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={onBack}
-            >
-              <ArrowLeft className='h-4 w-4' />
-              Back
-            </Button>
-          )}
-          <p className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
-            Email detail
-          </p>
-        </div>
-        <div className='flex items-center gap-2'>
-          <Tooltip>
-            <TooltipTrigger asChild>
+      {/* Header - only show when email is loaded */}
+      {email && (
+        <div className='flex items-center justify-between border-b px-4 py-3 shrink-0'>
+          <div className='flex items-center gap-2'>
+            {isMobile && onBack && (
               <Button
                 variant='ghost'
                 size='sm'
-                onClick={handleArchive}
-                disabled={isLoadingAction}
+                onClick={onBack}
               >
-                <Archive className='h-4 w-4' />
+                <ArrowLeft className='h-4 w-4' />
+                Back
               </Button>
-            </TooltipTrigger>
+            )}
+            <p className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+              Email detail
+            </p>
+          </div>
+          <div className='flex items-center gap-2'>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={handleArchive}
+                >
+                  <Archive className='h-4 w-4' />
+                </Button>
+              </TooltipTrigger>
 
-            <TooltipContent
-              side='bottom'
-              sideOffset={6}
-            >
-              Archive
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => email && handleStarToggle(email.starred)}
-                disabled={isLoadingAction || !email}
+              <TooltipContent
+                side='bottom'
+                sideOffset={6}
               >
-                <Star className='h-4 w-4' />
-              </Button>
-            </TooltipTrigger>
+                Archive
+              </TooltipContent>
+            </Tooltip>
 
-            <TooltipContent
-              side='bottom'
-              sideOffset={6}
-            >
-              {email?.starred ? 'Remove star' : 'Add star'}
-            </TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => email && handleStarToggle(email.starred)}
+                >
+                  {email?.starred ? (
+                    <Star className='h-4 w-4 fill-current text-yellow-400' />
+                  ) : (
+                    <Star className='h-4 w-4' />
+                  )}
+                </Button>
+              </TooltipTrigger>
+
+              <TooltipContent
+                side='bottom'
+                sideOffset={6}
+              >
+                {email?.starred ? 'Starred' : 'Not starred'}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-      </div>
+      )}
       <div className='flex-1 overflow-y-auto min-h-0 p-4 scrollbar-thin touch-scroll smooth-scroll'>
         {isLoading ? (
           <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
@@ -387,7 +421,7 @@ export function EmailDetailColumn({
                 size='sm'
                 variant='outline'
                 onClick={() => startReply('reply')}
-                disabled={isLoadingAction || !onReply}
+                disabled={isLoadingReply || !onReply}
               >
                 <Reply className='h-4 w-4' /> Reply
               </Button>
@@ -395,7 +429,7 @@ export function EmailDetailColumn({
                 size='sm'
                 variant='outline'
                 onClick={() => startReply('replyAll')}
-                disabled={isLoadingAction || !onReply}
+                disabled={isLoadingReply || !onReply}
               >
                 <ReplyAll className='h-4 w-4' /> Reply all
               </Button>
@@ -403,7 +437,7 @@ export function EmailDetailColumn({
                 size='sm'
                 variant='outline'
                 onClick={() => email && onForward && onForward(email)}
-                disabled={!onForward || !email || isLoadingAction}
+                disabled={!onForward || !email || isLoadingReply}
               >
                 <Forward className='h-4 w-4' /> Forward
               </Button>
@@ -457,7 +491,7 @@ export function EmailDetailColumn({
                           onDownloadAttachment &&
                           onDownloadAttachment(
                             attachment.id,
-                            attachment.fileName
+                            attachment.fileName,
                           )
                         }
                       >
@@ -469,7 +503,10 @@ export function EmailDetailColumn({
               </div>
             ) : null}
             {replyMode && (
-              <div className='rounded-lg border p-3 space-y-3'>
+              <div
+                ref={replyEditorRef}
+                className='rounded-lg border p-3 space-y-3'
+              >
                 <div className='flex items-center justify-between'>
                   <p className='text-sm font-semibold'>
                     {replyMode === 'replyAll' ? 'Reply all' : 'Reply'}
@@ -490,6 +527,12 @@ export function EmailDetailColumn({
                   onChange={(event) => setReplyBody(event.target.value)}
                   placeholder='Write your reply…'
                   disabled={submittingReply}
+                />
+                <AttachmentUploader
+                  attachments={replyAttachments}
+                  onAttachmentsChange={setReplyAttachments}
+                  disabled={submittingReply}
+                  compact
                 />
                 <div className='flex justify-end'>
                   <Button
