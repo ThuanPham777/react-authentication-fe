@@ -4,6 +4,7 @@ import type { SendEmailData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
+import { AttachmentUploader, type AttachmentFile } from './AttachmentUploader';
 
 /**
  * Draft structure for composing a new email
@@ -49,6 +50,7 @@ export function ComposeModal({
   const [bcc, setBcc] = useState(draft.bcc);
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -61,6 +63,7 @@ export function ComposeModal({
     setBcc(draft.bcc);
     setSubject(draft.subject);
     setBody(draft.body);
+    setAttachments([]);
     setError(null);
   }, [draft]);
 
@@ -100,12 +103,14 @@ export function ComposeModal({
 
     // Submit
     setError(null);
+    const attachmentFiles = attachments.map((att) => att.file);
     onSend({
       to: toList,
       cc: ccList.length ? ccList : undefined,
       bcc: bccList.length ? bccList : undefined,
       subject: subject.trim(),
       body,
+      attachments: attachmentFiles.length > 0 ? attachmentFiles : undefined,
     });
   };
 
@@ -162,6 +167,11 @@ export function ComposeModal({
             onChange={(e) => setBody(e.target.value)}
             disabled={isLoading}
             className='w-full rounded-md border bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          />
+          <AttachmentUploader
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
+            disabled={isLoading}
           />
           {error && <p className='text-sm text-destructive'>{error}</p>}
           <div className='flex justify-end gap-3'>

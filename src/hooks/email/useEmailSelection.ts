@@ -27,8 +27,8 @@ export function useEmailSelection({
   }, [mailboxId]);
 
   /**
-   * Auto-select first email or maintain selection
-   * If currently selected email is deleted, select the next one
+   * Handle edge case when selected email is deleted
+   * Does NOT auto-select first email on initial load - user must click to select
    */
   useEffect(() => {
     if (!emails.length) {
@@ -36,12 +36,14 @@ export function useEmailSelection({
       return;
     }
 
-    const currentIndex = emails.findIndex((e) => e.id === selectedEmailId);
-
-    // Email no longer exists (deleted), select adjacent email
-    if (currentIndex === -1) {
-      const nextEmail = emails[Math.min(0, emails.length - 1)];
-      setSelectedEmailId(nextEmail?.id || emails[0]?.id || null);
+    // Only act if there WAS a selection but the email no longer exists
+    // This handles deletion cases without auto-selecting on initial load
+    if (selectedEmailId) {
+      const currentIndex = emails.findIndex((e) => e.id === selectedEmailId);
+      if (currentIndex === -1) {
+        // Selected email was deleted, clear selection
+        setSelectedEmailId(null);
+      }
     }
   }, [emails, selectedEmailId]);
 
@@ -52,7 +54,7 @@ export function useEmailSelection({
     setSelectedEmails((prev) =>
       prev.includes(emailId)
         ? prev.filter((id) => id !== emailId)
-        : [...prev, emailId]
+        : [...prev, emailId],
     );
   };
 
@@ -62,7 +64,7 @@ export function useEmailSelection({
   const handleSelectAll = () => {
     if (!emails.length) return;
     setSelectedEmails((prev) =>
-      prev.length === emails.length ? [] : emails.map((e) => e.id)
+      prev.length === emails.length ? [] : emails.map((e) => e.id),
     );
   };
 

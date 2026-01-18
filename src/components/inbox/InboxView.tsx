@@ -10,11 +10,12 @@
  * - Optimistic UI updates
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import {
   gmailCached,
   getAttachment,
+  searchEmails,
   type EmailDetailResponse,
   type SendEmailData,
 } from '@/lib/api';
@@ -27,7 +28,6 @@ import { useEmailMutations } from '../../hooks/email/useEmailMutations';
 import { useEmailSelection } from '../../hooks/email/useEmailSelection';
 import {
   downloadAttachment,
-  filterEmailsBySearchTerm,
   createDefaultComposeDraft,
 } from '../../utils/emailUtils';
 import { EMAILS_PER_PAGE } from '../../constants/constants.email';
@@ -45,18 +45,36 @@ type ComposeDraft = {
 export function InboxView({
   mailboxId,
   emailSearchTerm = '',
+  newEmailIds,
+  onClearNewEmailId,
 }: {
   mailboxId: string;
   emailSearchTerm?: string;
+  newEmailIds?: Set<string>;
+  onClearNewEmailId?: (id: string) => void;
 }) {
   // State for compose modal and action messages
   const [composeDraft, setComposeDraft] = useState<ComposeDraft | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
+  // Debounced search term for API calls (to avoid too many requests)
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce the search term to reduce API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(emailSearchTerm.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [emailSearchTerm]);
+
+  // Determine if we're in search mode (global search across all labels)
+  const isSearchMode = debouncedSearchTerm.length > 0;
+
   /**
    * Fetch emails with infinite scroll pagination + offline caching
    * Uses pageToken from Gmail API for cursor-based pagination
-   * Implements stale-while-revalidate: shows cached data instantly, then updates
+   * Only runs when NOT in search mode (normal mailbox browsing)
    */
   const emailsQuery = useInfiniteQuery({
     queryKey: ['emails-infinite', mailboxId],
@@ -64,20 +82,38 @@ export function InboxView({
       gmailCached.getMailboxEmailsInfinite(
         mailboxId,
         pageParam,
-        EMAILS_PER_PAGE
+        EMAILS_PER_PAGE,
       ),
-    enabled: !!mailboxId,
+    enabled: !!mailboxId && !isSearchMode,
     getNextPageParam: (lastPage) =>
       lastPage.data.meta.nextPageToken ?? undefined,
     initialPageParam: undefined as string | undefined,
   });
 
   /**
+   * Global search query - searches across ALL labels without label restrictions
+   * Only runs when in search mode
+   */
+  const searchQuery = useInfiniteQuery({
+    queryKey: ['emails-search', debouncedSearchTerm],
+    queryFn: ({ pageParam }) =>
+      searchEmails(debouncedSearchTerm, pageParam, EMAILS_PER_PAGE),
+    enabled: isSearchMode,
+    getNextPageParam: (lastPage) =>
+      lastPage.data.meta.nextPageToken ?? undefined,
+    initialPageParam: undefined as string | undefined,
+  });
+
+  // Use the appropriate query based on search mode
+  const activeQuery = isSearchMode ? searchQuery : emailsQuery;
+
+  /**
    * Flatten paginated data into single array
+   * Uses search results when searching, mailbox results otherwise
    */
   const allEmails = useMemo(() => {
     const flat =
-      emailsQuery.data?.pages.flatMap((page) => page.data.data) ?? [];
+      activeQuery.data?.pages.flatMap((page) => page.data.data) ?? [];
 
     // Defensive de-dupe: cached pagination or overlapping page tokens can cause
     // repeated items, which leads to React "duplicate key" warnings and janky scroll.
@@ -90,7 +126,7 @@ export function InboxView({
       unique.push(email);
     }
     return unique;
-  }, [emailsQuery.data]);
+  }, [activeQuery.data]);
 
   /**
    * Custom hook for managing email selections
@@ -138,6 +174,35 @@ export function InboxView({
     });
 
   /**
+   * Handle email selection with automatic mark-as-read
+   * When user clicks an email, select it and mark as read if it's unread
+   */
+  const handleSelectEmail = useCallback(
+    (emailId: string) => {
+      setSelectedEmailId(emailId);
+
+      // Find the email in the list to check if it's unread
+      const email = allEmails.find((e) => e.id === emailId);
+      if (email?.unread) {
+        // Mark as read silently (no success message)
+        modifyMutation.mutate(
+          { emailId, actions: { markRead: true } },
+          {
+            onSuccess: () => {
+              // Silent success - don't show message for auto mark-read
+            },
+            onError: () => {
+              // Silent error - don't disrupt user flow
+              console.error('Failed to mark email as read');
+            },
+          },
+        );
+      }
+    },
+    [setSelectedEmailId, allEmails, modifyMutation],
+  );
+
+  /**
    * Handle bulk modification of multiple selected emails
    */
   const handleBulkModify = async (actions: any, successMessage: string) => {
@@ -147,21 +212,13 @@ export function InboxView({
 
     await Promise.all(
       selectedEmails.map((id) =>
-        modifyMutation.mutateAsync({ emailId: id, actions })
-      )
+        modifyMutation.mutateAsync({ emailId: id, actions }),
+      ),
     );
 
     clearSelections();
     showMessage(successMessage);
   };
-
-  /**
-   * Filter emails based on search term
-   */
-  const filteredEmails = useMemo(
-    () => filterEmailsBySearchTerm(allEmails, emailSearchTerm),
-    [allEmails, emailSearchTerm]
-  );
 
   /**
    * Open compose modal with optional initial values
@@ -185,7 +242,7 @@ export function InboxView({
    */
   const handleDownloadAttachment = async (
     attachmentId: string,
-    fileName: string
+    fileName: string,
   ) => {
     if (!selectedEmailId) return;
 
@@ -213,15 +270,15 @@ export function InboxView({
           }
         >
           <EmailListColumn
-            emails={filteredEmails}
-            isLoading={emailsQuery.isLoading}
+            emails={allEmails}
+            isLoading={activeQuery.isLoading}
             isFetching={
-              emailsQuery.isFetching || emailsQuery.isFetchingNextPage
+              activeQuery.isFetching || activeQuery.isFetchingNextPage
             }
-            hasMore={emailsQuery.hasNextPage ?? false}
-            onLoadMore={() => emailsQuery.fetchNextPage()}
+            hasMore={activeQuery.hasNextPage ?? false}
+            onLoadMore={() => activeQuery.fetchNextPage()}
             selectedEmails={selectedEmails}
-            onSelectEmail={setSelectedEmailId}
+            onSelectEmail={handleSelectEmail}
             onToggleSelect={handleToggleSelect}
             onSelectAll={handleSelectAll}
             onMarkRead={() =>
@@ -242,6 +299,8 @@ export function InboxView({
             actionsDisabled={modifyMutation.isPending}
             activeEmailId={selectedEmailId}
             onCompose={() => openCompose()}
+            newEmailIds={newEmailIds}
+            onClearNewEmailId={onClearNewEmailId}
           />
         </div>
 
@@ -260,11 +319,12 @@ export function InboxView({
             onBack={() => setSelectedEmailId(null)}
             onReply={
               selectedEmailId
-                ? async (body, replyAll) => {
+                ? async (body, replyAll, attachments) => {
                     await replyMutation.mutateAsync({
                       emailId: selectedEmailId,
                       body,
                       replyAll,
+                      attachments,
                     });
                   }
                 : undefined
@@ -278,9 +338,7 @@ export function InboxView({
             onDownloadAttachment={
               selectedEmailId ? handleDownloadAttachment : undefined
             }
-            isLoadingAction={
-              replyMutation.isPending || modifyMutation.isPending
-            }
+            isLoadingReply={replyMutation.isPending}
             onForward={(email) => openForward(email)}
           />
         </div>
@@ -309,8 +367,8 @@ export function InboxView({
 
       {/* Cache status indicator - shows when syncing fresh data */}
       <CacheStatusIndicator
-        isFetching={emailsQuery.isFetching || emailDetailQuery.isFetching}
-        label='Syncing emails...'
+        isFetching={activeQuery.isFetching || emailDetailQuery.isFetching}
+        label={isSearchMode ? 'Searching...' : 'Syncing emails...'}
       />
     </div>
   );

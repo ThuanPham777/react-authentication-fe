@@ -64,6 +64,7 @@ export interface SendEmailData {
   body: string;
   cc?: string[];
   bcc?: string[];
+  attachments?: File[];
 }
 
 export interface SendEmailResponse {
@@ -77,6 +78,7 @@ export interface SendEmailResponse {
 export interface ReplyEmailData {
   body: string;
   replyAll?: boolean;
+  attachments?: File[];
 }
 
 export interface ReplyEmailResponse {

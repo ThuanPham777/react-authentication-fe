@@ -17,15 +17,11 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from '@/components/ui/tooltip';
+import { CheckSquare, Trash2, Star, Loader2, Plus } from 'lucide-react';
 import {
-  CheckSquare,
-  Trash2,
-  Star,
-  StarOff,
-  Loader2,
-  Plus,
-} from 'lucide-react';
-import { SCROLL_LOAD_THRESHOLD } from '../../constants/constants.email';
+  SCROLL_LOAD_THRESHOLD,
+  NEW_EMAIL_HIGHLIGHT_DURATION,
+} from '../../constants/constants.email';
 import { MailIcon } from './MailIcon';
 
 export function EmailListColumn({
@@ -46,6 +42,8 @@ export function EmailListColumn({
   activeEmailId,
   compact,
   onCompose,
+  newEmailIds,
+  onClearNewEmailId,
 }: {
   emails: EmailListItem[];
   isLoading: boolean;
@@ -64,6 +62,8 @@ export function EmailListColumn({
   activeEmailId: string | null;
   compact?: boolean;
   onCompose?: () => void;
+  newEmailIds?: Set<string>;
+  onClearNewEmailId?: (id: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const emailRefs = useRef<Map<string, HTMLLIElement>>(new Map());
@@ -74,16 +74,48 @@ export function EmailListColumn({
   const lastLoadMoreAtRef = useRef<number>(0);
 
   /**
+   * Auto-clear new email highlights after duration
+   * Each new email ID gets its own timer for removal
+   */
+  useEffect(() => {
+    if (!newEmailIds || newEmailIds.size === 0 || !onClearNewEmailId) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    newEmailIds.forEach((emailId) => {
+      const timer = setTimeout(() => {
+        onClearNewEmailId(emailId);
+      }, NEW_EMAIL_HIGHLIGHT_DURATION);
+      timers.push(timer);
+    });
+
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [newEmailIds, onClearNewEmailId]);
+
+  /**
    * Keyboard navigation handlers
+   * Arrow keys change focus index, which triggers auto-scroll
    */
   useKeyboardNavigation({
     enabled: !isLoading && emails.length > 0,
     handlers: {
       NEXT_EMAIL: () => {
-        setFocusedIndex((prev) => Math.min(prev + 1, emails.length - 1));
+        setFocusedIndex((prev) => {
+          const newIndex = Math.min(prev + 1, emails.length - 1);
+          // Force scroll by clearing the ref when keyboard navigating
+          lastAutoScrolledEmailIdRef.current = null;
+          return newIndex;
+        });
       },
       PREV_EMAIL: () => {
-        setFocusedIndex((prev) => Math.max(prev - 1, 0));
+        setFocusedIndex((prev) => {
+          const newIndex = Math.max(prev - 1, 0);
+          // Force scroll by clearing the ref when keyboard navigating
+          lastAutoScrolledEmailIdRef.current = null;
+          return newIndex;
+        });
       },
       OPEN_EMAIL: () => {
         if (emails[focusedIndex]) {
@@ -94,26 +126,23 @@ export function EmailListColumn({
   });
 
   /**
-   * Auto-scroll focused email into view
+   * Auto-scroll focused email into view when keyboard navigating
    */
   useEffect(() => {
     const focusedEmail = emails[focusedIndex];
     if (!focusedEmail) return;
 
-    // IMPORTANT: avoid re-scrolling on every email page append.
-    // When `emails` changes (infinite load), re-running scrollIntoView can create
-    // a feedback loop: scroll -> load more -> emails change -> scrollIntoView -> scroll...
+    // Skip if already scrolled to this email (prevents scroll during pagination)
+    // This check is bypassed when keyboard navigation clears the ref
     if (lastAutoScrolledEmailIdRef.current === focusedEmail.id) return;
     lastAutoScrolledEmailIdRef.current = focusedEmail.id;
 
     const element = emailRefs.current.get(focusedEmail.id);
     element?.scrollIntoView({
       block: 'nearest',
-      // Use non-animated scrolling to prevent continuous smooth scrolling
-      // during pagination updates.
       behavior: 'auto',
     });
-  }, [focusedIndex]);
+  }, [focusedIndex, emails]);
 
   // NOTE: we intentionally do NOT reset `wasNearBottomRef` when fetching completes.
   // If the user remains at the bottom, resetting would allow another immediate
@@ -250,6 +279,12 @@ export function EmailListColumn({
             {emails.map((email, index) => {
               const isFocused = index === focusedIndex;
               const isActive = email.id === activeEmailId;
+              // Check if this email is new (matching either full ID or just messageId portion)
+              const messageId = email.id.includes('|')
+                ? email.id.split('|')[1]
+                : email.id;
+              const isNewEmail =
+                newEmailIds?.has(email.id) || newEmailIds?.has(messageId);
               return (
                 <li
                   key={email.id}
@@ -280,6 +315,7 @@ export function EmailListColumn({
                       type='checkbox'
                       className='mt-1 accent-primary'
                       checked={selectedEmails.includes(email.id)}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={() => onToggleSelect(email.id)}
                       aria-label={`Select email from ${email.senderName}`}
                     />
@@ -292,7 +328,12 @@ export function EmailListColumn({
                       <div className='flex items-center justify-between'>
                         <p className='font-semibold'>
                           {email.senderName}{' '}
-                          {email.unread && (
+                          {isNewEmail && (
+                            <span className='ml-1 inline-flex items-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wide'>
+                              New
+                            </span>
+                          )}
+                          {email.unread && !isNewEmail && (
                             <span className='text-xs'>• Unread</span>
                           )}
                         </p>
@@ -314,14 +355,16 @@ export function EmailListColumn({
                       <TooltipTrigger asChild>
                         <button
                           type='button'
-                          className='text-muted-foreground hover:text-yellow-500 disabled:opacity-50'
-                          onClick={() => onStarToggle(email.id, email.starred)}
-                          disabled={actionsDisabled}
+                          className='flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted transition-colors'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStarToggle(email.id, email.starred);
+                          }}
                         >
                           {email.starred ? (
-                            <Star className='h-4 w-4 fill-current' />
+                            <Star className='h-4 w-4 fill-yellow-400 text-yellow-400' />
                           ) : (
-                            <StarOff className='h-4 w-4' />
+                            <Star className='h-4 w-4 text-muted-foreground hover:text-yellow-400' />
                           )}
                         </button>
                       </TooltipTrigger>
@@ -330,7 +373,7 @@ export function EmailListColumn({
                         side='top'
                         sideOffset={6}
                       >
-                        {email.starred ? 'Remove star' : 'Add star'}
+                        {email.starred ? 'Starred' : 'Not starred'}
                       </TooltipContent>
                     </Tooltip>
                   </div>
