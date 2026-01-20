@@ -11,23 +11,23 @@
  * - Handles both login and registration via single endpoint
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { loginWithGoogle, type LoginResponse } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useRef, useCallback, useState } from "react";
+import { loginWithGoogle, type LoginResponse } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 /** ID for Google Identity Services script tag */
-const SCRIPT_ID = 'google-identity-services';
+const SCRIPT_ID = "google-identity-services";
 
 /** Gmail API scopes required for email operations */
 const GMAIL_SCOPE = [
-  'openid',
-  'email',
-  'profile',
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/gmail.send',
-].join(' ');
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.send",
+].join(" ");
 
 interface Props {
   /** Callback when authentication succeeds */
@@ -49,27 +49,27 @@ function loadGsiScript(): Promise<void> {
     if (window.google?.accounts?.oauth2) return resolve();
 
     const existing = document.getElementById(
-      SCRIPT_ID
+      SCRIPT_ID,
     ) as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener("load", () => resolve(), { once: true });
       existing.addEventListener(
-        'error',
-        () => reject(new Error('Failed to load GSI scripts')),
+        "error",
+        () => reject(new Error("Failed to load GSI scripts")),
         {
           once: true,
-        }
+        },
       );
       return;
     }
 
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.id = SCRIPT_ID;
-    script.src = 'https://accounts.google.com/gsi/client';
+    script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load GSI script'));
+    script.onerror = () => reject(new Error("Failed to load GSI script"));
     document.head.appendChild(script);
   });
 }
@@ -80,26 +80,22 @@ function loadGsiScript(): Promise<void> {
  */
 function GoogleLogo() {
   return (
-    <svg
-      className='h-5 w-5'
-      viewBox='0 0 48 48'
-      aria-hidden='true'
-    >
+    <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
       <path
-        fill='#EA4335'
-        d='M24 9.5c3.54 0 6 1.54 7.38 2.84l5.4-5.4C33.64 3.36 29.3 1.5 24 1.5 14.88 1.5 7.09 6.98 3.64 14.63l6.59 5.12C11.85 13.61 17.45 9.5 24 9.5z'
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6 1.54 7.38 2.84l5.4-5.4C33.64 3.36 29.3 1.5 24 1.5 14.88 1.5 7.09 6.98 3.64 14.63l6.59 5.12C11.85 13.61 17.45 9.5 24 9.5z"
       />
       <path
-        fill='#4285F4'
-        d='M46.5 24.5c0-1.57-.14-3.08-.4-4.5H24v9h12.7c-.55 2.97-2.23 5.49-4.73 7.18l7.41 5.75C43.96 37.74 46.5 31.62 46.5 24.5z'
+        fill="#4285F4"
+        d="M46.5 24.5c0-1.57-.14-3.08-.4-4.5H24v9h12.7c-.55 2.97-2.23 5.49-4.73 7.18l7.41 5.75C43.96 37.74 46.5 31.62 46.5 24.5z"
       />
       <path
-        fill='#FBBC05'
-        d='M10.23 28.25A14.5 14.5 0 0 1 9.5 24c0-1.49.25-2.93.7-4.25l-6.59-5.12A22.43 22.43 0 0 0 1.5 24c0 3.62.87 7.04 2.41 10.06l6.32-5.81z'
+        fill="#FBBC05"
+        d="M10.23 28.25A14.5 14.5 0 0 1 9.5 24c0-1.49.25-2.93.7-4.25l-6.59-5.12A22.43 22.43 0 0 0 1.5 24c0 3.62.87 7.04 2.41 10.06l6.32-5.81z"
       />
       <path
-        fill='#34A853'
-        d='M24 46.5c6.3 0 11.6-2.08 15.47-5.64l-7.41-5.75C30.12 36.9 27.3 38 24 38c-6.55 0-12.05-4.11-14.07-9.75l-6.32 5.81C7.09 41.02 14.88 46.5 24 46.5z'
+        fill="#34A853"
+        d="M24 46.5c6.3 0 11.6-2.08 15.47-5.64l-7.41-5.75C30.12 36.9 27.3 38 24 38c-6.55 0-12.05-4.11-14.07-9.75l-6.32 5.81C7.09 41.02 14.88 46.5 24 46.5z"
       />
     </svg>
   );
@@ -114,7 +110,7 @@ export function GoogleSigninButton({
   onSuccess,
   onError,
   disabled,
-  buttonText = 'Sign in with Google',
+  buttonText = "Sign in with Google",
 }: Props) {
   // Reference to OAuth2 code client instance
   const codeClientRef = useRef<google.accounts.oauth2.CodeClient | null>(null);
@@ -128,26 +124,26 @@ export function GoogleSigninButton({
   const initClient = useCallback(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) {
-      console.error('Missing VITE_GOOGLE_CLIENT_ID');
+      console.error("Missing VITE_GOOGLE_CLIENT_ID");
       return;
     }
 
     const oauth2 = window.google?.accounts?.oauth2;
     if (!oauth2) {
-      console.error('Google OAuth2 not available on window.google');
+      console.error("Google OAuth2 not available on window.google");
       return;
     }
 
     codeClientRef.current = oauth2.initCodeClient({
       client_id: clientId,
       scope: GMAIL_SCOPE,
-      ux_mode: 'popup',
-      access_type: 'offline',
-      prompt: 'consent',
+      ux_mode: "popup",
+      access_type: "offline",
+      prompt: "consent",
       callback: async (resp) => {
         if (!resp.code) {
-          const errorMsg = resp.error || 'No authorization code returned';
-          console.error('Google auth error:', errorMsg);
+          const errorMsg = resp.error || "No authorization code returned";
+          console.error("Google auth error:", errorMsg);
           onError?.(errorMsg);
           setIsLoading(false);
           return;
@@ -159,8 +155,8 @@ export function GoogleSigninButton({
           onSuccess(res);
         } catch (e: any) {
           const errorMsg =
-            e?.response?.data?.message || e?.message || 'Authentication failed';
-          console.error('Login error:', e);
+            e?.response?.data?.message || e?.message || "Authentication failed";
+          console.error("Login error:", e);
           onError?.(errorMsg);
         } finally {
           setIsLoading(false);
@@ -194,7 +190,7 @@ export function GoogleSigninButton({
    */
   const handleClick = () => {
     if (!codeClientRef.current) {
-      console.warn('Code client not initialized yet');
+      console.warn("Code client not initialized yet");
       return;
     }
     codeClientRef.current.requestCode();
@@ -204,20 +200,20 @@ export function GoogleSigninButton({
 
   return (
     <Button
-      type='button'
+      type="button"
       onClick={handleClick}
       disabled={isDisabled}
-      className='w-full justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f7f8f8] active:bg-[#f1f3f4] disabled:opacity-50'
-      variant='outline'
+      className="w-full justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f7f8f8] active:bg-[#f1f3f4] disabled:opacity-50"
+      variant="outline"
       aria-label={buttonText}
     >
       {isLoading ? (
-        <Loader2 className='h-5 w-5 animate-spin' />
+        <Loader2 className="h-5 w-5 animate-spin" />
       ) : (
         <GoogleLogo />
       )}
-      <span className='whitespace-nowrap'>
-        {isLoading ? 'Signing in...' : buttonText}
+      <span className="whitespace-nowrap">
+        {isLoading ? "Signing in..." : buttonText}
       </span>
     </Button>
   );
