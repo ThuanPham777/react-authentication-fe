@@ -17,20 +17,29 @@ on:
         required: true
       DOCKERHUB_PASS:
         required: true
+      VITE_API_BASE_URL:
+        required: false
+      VITE_GOOGLE_CLIENT_ID:
+        required: false
 
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-    - name: Build Docker image
-      run: docker build -f ${{ inputs.dockerfile_path }} -t ${{ secrets.DOCKERHUB_USER }}/${{ inputs.service_name }}:latest ${{ inputs.context_path }}
+      - name: Build Docker image
+        run: |
+          docker build -f ${{ inputs.dockerfile_path }} \
+            --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
+            --build-arg VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }} \
+            -t ${{ secrets.DOCKERHUB_USER }}/${{ inputs.service_name }}:latest \
+            ${{ inputs.context_path }}
 
-    - name: Log in to Docker Hub
-      run: echo "${{ secrets.DOCKERHUB_PASS }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_PASS }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
 
-    - name: Push Docker image
-      run: docker push ${{ secrets.DOCKERHUB_USER }}/${{ inputs.service_name }}:latest
+      - name: Push Docker image
+        run: docker push ${{ secrets.DOCKERHUB_USER }}/${{ inputs.service_name }}:latest
